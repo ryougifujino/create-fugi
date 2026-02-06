@@ -2,3 +2,4 @@
 .idea
 .pnpm-store
 pnpm-lock.yaml
+lefthook.yml
