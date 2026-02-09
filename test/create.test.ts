@@ -14,7 +14,7 @@ const { runCreateCommand } = require('../dist/commands/create.js') as Pick<
 >;
 
 test('runCreateCommand copies selected template into new project directory', async () => {
-  const tempRootDir = await mkdtemp(path.join(os.tmpdir(), 'scaffolds-create-'));
+  const tempRootDir = await mkdtemp(path.join(os.tmpdir(), 'create-fugi-create-'));
 
   try {
     const templatesRootDir = path.join(tempRootDir, 'templates');
@@ -54,7 +54,7 @@ test('runCreateCommand copies selected template into new project directory', asy
 });
 
 test('runCreateCommand fails when target project directory already exists', async () => {
-  const tempRootDir = await mkdtemp(path.join(os.tmpdir(), 'scaffolds-create-'));
+  const tempRootDir = await mkdtemp(path.join(os.tmpdir(), 'create-fugi-create-'));
 
   try {
     const templatesRootDir = path.join(tempRootDir, 'templates');

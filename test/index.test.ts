@@ -22,6 +22,18 @@ test('runCli delegates create command', async () => {
   assert.equal(called, true);
 });
 
+test('runCli delegates create command when invoked without arguments', async () => {
+  let called = false;
+  const exitCode = await runCli([], {
+    runCreateCommand: async () => {
+      called = true;
+    },
+  });
+
+  assert.equal(exitCode, 0);
+  assert.equal(called, true);
+});
+
 test('runCli prints help for unsupported command', async () => {
   let output = '';
   const exitCode = await runCli(['unknown'], {

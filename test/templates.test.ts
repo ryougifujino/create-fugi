@@ -30,7 +30,7 @@ test('validateProjectName rejects invalid names', () => {
 });
 
 test('listTemplates returns only directories in lexical order', async () => {
-  const tempRootDir = await mkdtemp(path.join(os.tmpdir(), 'scaffolds-templates-'));
+  const tempRootDir = await mkdtemp(path.join(os.tmpdir(), 'create-fugi-templates-'));
 
   try {
     const templatesRootDir = path.join(tempRootDir, 'templates');
@@ -49,7 +49,7 @@ test('listTemplates returns only directories in lexical order', async () => {
 });
 
 test('ensureDirectoryDoesNotExist throws when target exists', async () => {
-  const tempRootDir = await mkdtemp(path.join(os.tmpdir(), 'scaffolds-templates-'));
+  const tempRootDir = await mkdtemp(path.join(os.tmpdir(), 'create-fugi-templates-'));
 
   try {
     await assert.rejects(

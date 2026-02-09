@@ -4,7 +4,8 @@ import { pathToFileURL } from 'node:url'
 import { runCreateCommand } from './commands/create.js'
 
 export const HELP_TEXT = `Usage:
-  scaffolds create`
+  pnpm create fugi
+  create-fugi`
 
 export interface CliDependencies {
   runCreateCommand?: () => Promise<void>
@@ -14,7 +15,7 @@ export interface CliDependencies {
 export async function runCli(argv: string[], dependencies: CliDependencies = {}): Promise<number> {
   const command = argv[0]
 
-  if (command === 'create') {
+  if (command === undefined || command === 'create') {
     await (dependencies.runCreateCommand ?? runCreateCommand)()
     return 0
   }

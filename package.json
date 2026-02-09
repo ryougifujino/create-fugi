@@ -1,5 +1,5 @@
 {
-  "name": "scaffolds",
+  "name": "create-fugi",
   "version": "1.0.0",
   "description": "",
   "type": "module",
@@ -8,7 +8,7 @@
   },
   "main": "dist/index.js",
   "bin": {
-    "scaffolds": "dist/index.js"
+    "create-fugi": "dist/index.js"
   },
   "files": [
     "dist"
@@ -29,13 +29,13 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com:ryougifujino/scaffolds.git"
+    "url": "git+https://github.com:ryougifujino/create-fugi.git"
   },
   "keywords": [],
   "author": "ryougifujino",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/ryougifujino/scaffolds/issues"
+    "url": "https://github.com/ryougifujino/create-fugi/issues"
   },
   "packageManager": "pnpm@10.28.2",
   "dependencies": {

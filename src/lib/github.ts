@@ -3,9 +3,9 @@ import path from 'node:path'
 import { x as extractArchive } from 'tar'
 
 const GITHUB_OWNER = 'ryougifujino'
-const GITHUB_REPO = 'scaffolds'
+const GITHUB_REPO = 'create-fugi'
 const GITHUB_REPOSITORY_API = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}`
-const GITHUB_USER_AGENT = 'scaffolds-cli'
+const GITHUB_USER_AGENT = 'create-fugi-cli'
 
 interface GithubRepositoryResponse {
   default_branch?: string

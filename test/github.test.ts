@@ -20,9 +20,9 @@ const { listTemplates } = require('../dist/lib/templates.js') as Pick<
   'listTemplates'
 >;
 
-const REPOSITORY_API_URL = 'https://api.github.com/repos/ryougifujino/scaffolds';
+const REPOSITORY_API_URL = 'https://api.github.com/repos/ryougifujino/create-fugi';
 const TARBALL_URL =
-  'https://codeload.github.com/ryougifujino/scaffolds/tar.gz/refs/heads/main';
+  'https://codeload.github.com/ryougifujino/create-fugi/tar.gz/refs/heads/main';
 
 function toUrl(input: FetchInput): string {
   if (typeof input === 'string') {
@@ -36,11 +36,11 @@ function toUrl(input: FetchInput): string {
 }
 
 test('downloadTemplatesDirectory downloads archive and resolves templates folder', async () => {
-  const tempRootDir = await mkdtemp(path.join(os.tmpdir(), 'scaffolds-github-'));
+  const tempRootDir = await mkdtemp(path.join(os.tmpdir(), 'create-fugi-github-'));
 
   try {
     const fixtureRootDir = path.join(tempRootDir, 'fixture-repo');
-    const repositoryRootDir = path.join(fixtureRootDir, 'scaffolds-main');
+    const repositoryRootDir = path.join(fixtureRootDir, 'create-fugi-main');
 
     await mkdir(path.join(repositoryRootDir, 'templates', 'react'), {
       recursive: true,
@@ -64,7 +64,7 @@ test('downloadTemplatesDirectory downloads archive and resolves templates folder
         file: archivePath,
         gzip: true,
       },
-      ['scaffolds-main'],
+      ['create-fugi-main'],
     );
 
     const archiveBytes = await readFile(archivePath);
@@ -112,11 +112,11 @@ test('downloadTemplatesDirectory downloads archive and resolves templates folder
 });
 
 test('downloadTemplatesDirectory fails when templates directory is missing', async () => {
-  const tempRootDir = await mkdtemp(path.join(os.tmpdir(), 'scaffolds-github-'));
+  const tempRootDir = await mkdtemp(path.join(os.tmpdir(), 'create-fugi-github-'));
 
   try {
     const fixtureRootDir = path.join(tempRootDir, 'fixture-repo');
-    const repositoryRootDir = path.join(fixtureRootDir, 'scaffolds-main');
+    const repositoryRootDir = path.join(fixtureRootDir, 'create-fugi-main');
 
     await mkdir(path.join(repositoryRootDir, 'docs'), { recursive: true });
     await writeFile(path.join(repositoryRootDir, 'docs', 'README.md'), 'docs');
@@ -128,7 +128,7 @@ test('downloadTemplatesDirectory fails when templates directory is missing', asy
         file: archivePath,
         gzip: true,
       },
-      ['scaffolds-main'],
+      ['create-fugi-main'],
     );
 
     const archiveBytes = await readFile(archivePath);

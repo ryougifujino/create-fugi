@@ -56,7 +56,7 @@ export async function runCreateCommand(dependencies: CreateCommandDependencies =
   const askProjectName = dependencies.promptProjectName ?? promptProjectName
   const downloadTemplatesDirectory = dependencies.downloadTemplatesDirectory ?? downloadTemplatesDirectoryFromGithub
 
-  const tempRootDir = await mkdtemp(path.join(os.tmpdir(), 'scaffolds-'))
+  const tempRootDir = await mkdtemp(path.join(os.tmpdir(), 'create-fugi-'))
 
   try {
     log('Fetching templates from GitHub...')
