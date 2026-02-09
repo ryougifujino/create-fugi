@@ -1,5 +1,22 @@
-.DS_Store
-.idea
+# Logs
+logs
+*.log
+pnpm-debug.log*
+
+node_modules
+dist
+*.local
 .pnpm-store
-pnpm-lock.yaml
-lefthook.yml
+templates/*/pnpm-lock.yaml
+./lefthook.yml
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
