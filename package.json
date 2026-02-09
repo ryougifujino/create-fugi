@@ -1,7 +1,7 @@
 {
   "name": "create-fugi",
   "version": "1.0.0",
-  "description": "",
+  "description": "Scaffold opinionated project templates with strong constraints and quality checks.",
   "type": "module",
   "engines": {
     "node": ">=24.0.0"
@@ -32,12 +32,23 @@
     "type": "git",
     "url": "git+https://github.com:ryougifujino/create-fugi.git"
   },
-  "keywords": [],
+  "keywords": [
+    "create-fugi",
+    "create",
+    "scaffold",
+    "template",
+    "starter",
+    "react",
+    "vite",
+    "typescript",
+    "pnpm"
+  ],
   "author": "ryougifujino",
   "license": "MIT",
   "bugs": {
     "url": "https://github.com/ryougifujino/create-fugi/issues"
   },
+  "homepage": "https://github.com/ryougifujino/create-fugi#readme",
   "packageManager": "pnpm@10.28.2",
   "dependencies": {
     "@inquirer/prompts": "8.2.0",
