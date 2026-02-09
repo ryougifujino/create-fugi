@@ -16,7 +16,8 @@
   "scripts": {
     "typecheck": "tsgo --noEmit",
     "build": "rimraf dist && tsgo",
-    "test": "pnpm typecheck && node --test \"test/**/*.test.ts\""
+    "test": "pnpm typecheck && node --test \"test/**/*.test.ts\"",
+    "prepublishOnly": "pnpm test && pnpm build"
   },
   "lint-staged": {
     "src/**/*.{js,jsx,ts,tsx}": [
