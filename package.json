@@ -7,12 +7,16 @@
     "node": ">=24.0.0"
   },
   "main": "dist/index.js",
+  "bin": {
+    "scaffolds": "dist/index.js"
+  },
   "files": [
     "dist"
   ],
   "scripts": {
-    "typecheck": "tsc --noEmit",
-    "build": "rimraf dist && tsgo"
+    "typecheck": "tsgo --noEmit",
+    "build": "rimraf dist && tsgo",
+    "test": "pnpm typecheck && node --test \"test/**/*.test.ts\""
   },
   "lint-staged": {
     "src/**/*.{js,jsx,ts,tsx}": [
@@ -34,6 +38,10 @@
     "url": "https://github.com/ryougifujino/scaffolds/issues"
   },
   "packageManager": "pnpm@10.28.2",
+  "dependencies": {
+    "@inquirer/prompts": "^8.0.1",
+    "tar": "^7.5.2"
+  },
   "devDependencies": {
     "@commitlint/cli": "^20.4.1",
     "@commitlint/config-conventional": "^20.4.1",
