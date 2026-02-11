@@ -1,0 +1,19 @@
+{
+  "name": "mono-electron-solid",
+  "version": "1.0.0",
+  "private": true,
+  "description": "",
+  "keywords": [],
+  "author": "ryougifujino",
+  "license": "ISC",
+  "packageManager": "pnpm@10.28.2",
+  "pnpm": {
+    "overrides": {
+      "vite": "catalog:"
+    },
+    "onlyBuiltDependencies": [
+      "lefthook",
+      "electron"
+    ]
+  }
+}
