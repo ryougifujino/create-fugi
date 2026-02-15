@@ -7,6 +7,6 @@ export default defineConfig({
   // so built asset URLs must stay relative instead of root-absolute.
   base: './',
   build: {
-    outDir: 'dist/renderer'
-  }
+    outDir: 'dist/renderer',
+  },
 })
