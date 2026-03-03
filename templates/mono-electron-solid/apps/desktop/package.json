@@ -10,7 +10,7 @@
     "typecheck": "tsc -b --noEmit",
     "lint": "eslint . --max-warnings=0",
     "build": "tsc -b && vite build && tsdown",
-    "preview": "vite preview"
+    "preview": "pnpm build && electron ."
   },
   "dependencies": {
     "solid-js": "catalog:"
