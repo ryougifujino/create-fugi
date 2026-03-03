@@ -1,28 +1,30 @@
 ## Usage
 
 ```bash
-$ npm install # or pnpm install or yarn install
+$ pnpm install
+$ pnpm dev
 ```
 
-### Learn more on the [Solid Website](https://solidjs.com) and come chat with us on our [Discord](https://discord.com/invite/solidjs)
+`pnpm dev` starts the renderer on a Vite dev server, watches the Electron
+bundle, and restarts Electron when Electron-side code changes.
 
 ## Available Scripts
 
-In the project directory, you can run:
+From the workspace root, you can run:
 
-### `npm run dev`
+### `pnpm dev`
 
-Runs the app in the development mode.<br>
-Open [http://localhost:5173](http://localhost:5173) to view it in the browser.
+Starts the desktop development workflow.<br>
+The renderer uses Vite HMR and Electron restarts automatically after Electron
+bundle rebuilds.
 
-### `npm run build`
+### `pnpm --filter @mono-electron-solid/desktop dev:renderer`
 
-Builds the app for production to the `dist` folder.<br>
-It correctly bundles Solid in production mode and optimizes the build for the best performance.
+Runs only the renderer dev server.
 
-The build is minified and the filenames include the hashes.<br>
-Your app is ready to be deployed!
+### `pnpm build`
 
-## Deployment
+Builds the renderer and Electron bundle for production.
 
-Learn more about deploying your application with the [documentations](https://vite.dev/guide/static-deploy.html)
+Learn more on the [Solid Website](https://solidjs.com) and the
+[Electron Website](https://www.electronjs.org/).

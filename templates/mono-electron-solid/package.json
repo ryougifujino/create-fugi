@@ -11,6 +11,7 @@
     "node": ">=24.0.0"
   },
   "scripts": {
+    "dev": "pnpm --filter @mono-electron-solid/desktop dev",
     "typecheck": "pnpm -r typecheck",
     "lint": "pnpm -r lint",
     "stylelint": "stylelint \"apps/**/*.{css,scss}\"",
