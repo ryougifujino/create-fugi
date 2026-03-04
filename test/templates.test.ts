@@ -16,16 +16,22 @@ const { ensureDirectoryDoesNotExist, listTemplates, validateProjectName } =
 
 test('validateProjectName accepts legal names', () => {
   assert.equal(validateProjectName('demo-app'), 'demo-app');
-  assert.equal(validateProjectName('demo.app_1'), 'demo.app_1');
+  assert.equal(validateProjectName('demo-app-1'), 'demo-app-1');
 });
 
 test('validateProjectName rejects invalid names', () => {
   assert.throws(() => validateProjectName(''), /required/);
   assert.throws(() => validateProjectName('hello/world'), /single directory/);
   assert.throws(() => validateProjectName('../parent'), /single directory/);
+  assert.throws(() => validateProjectName('Demo-App'), /kebab-case/);
+  assert.throws(() => validateProjectName('demo_app'), /kebab-case/);
+  assert.throws(() => validateProjectName('demo.app'), /kebab-case/);
+  assert.throws(() => validateProjectName('-demo-app'), /kebab-case/);
+  assert.throws(() => validateProjectName('demo-app-'), /kebab-case/);
+  assert.throws(() => validateProjectName('demo--app'), /kebab-case/);
   assert.throws(
     () => validateProjectName('bad name'),
-    /can only contain letters, numbers, dots, underscores, and hyphens/,
+    /kebab-case/,
   );
 });
 

@@ -7,6 +7,7 @@ import {
   type DownloadTemplatesResult,
 } from '../lib/github.js'
 import {
+  applyProjectNameTemplate,
   copyTemplate,
   ensureDirectoryDoesNotExist,
   listTemplates,
@@ -81,6 +82,7 @@ export async function runCreateCommand(dependencies: CreateCommandDependencies =
 
     await ensureDirectoryDoesNotExist(targetDir)
     await copyTemplate(selectedTemplate.absolutePath, targetDir)
+    await applyProjectNameTemplate(targetDir, selectedTemplate.name, projectName)
 
     log(`Project created at ${targetDir}`)
     log(`Next steps:\n  cd ${projectName}`)
