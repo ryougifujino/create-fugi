@@ -20,7 +20,6 @@ const { listTemplates } = require('../dist/lib/templates.js') as Pick<
   'listTemplates'
 >;
 
-const REPOSITORY_API_URL = 'https://api.github.com/repos/ryougifujino/create-fugi';
 const TARBALL_URL =
   'https://codeload.github.com/ryougifujino/create-fugi/tar.gz/refs/heads/main';
 
@@ -73,15 +72,6 @@ test('downloadTemplatesDirectory downloads archive and resolves templates folder
       const requestUrl = toUrl(input);
       requestedUrls.push(requestUrl);
 
-      if (requestUrl === REPOSITORY_API_URL) {
-        return new Response(JSON.stringify({ default_branch: 'main' }), {
-          status: 200,
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
-      }
-
       if (requestUrl === TARBALL_URL) {
         return new Response(archiveBytes, {
           status: 200,
@@ -105,7 +95,7 @@ test('downloadTemplatesDirectory downloads archive and resolves templates folder
       templates.map((template) => template.name),
       ['react', 'vue'],
     );
-    assert.deepEqual(requestedUrls, [REPOSITORY_API_URL, TARBALL_URL]);
+    assert.deepEqual(requestedUrls, [TARBALL_URL]);
   } finally {
     await rm(tempRootDir, { recursive: true, force: true });
   }
@@ -134,15 +124,6 @@ test('downloadTemplatesDirectory fails when templates directory is missing', asy
     const archiveBytes = await readFile(archivePath);
     const fetchMock = (async (input: FetchInput): Promise<Response> => {
       const requestUrl = toUrl(input);
-
-      if (requestUrl === REPOSITORY_API_URL) {
-        return new Response(JSON.stringify({ default_branch: 'main' }), {
-          status: 200,
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
-      }
 
       if (requestUrl === TARBALL_URL) {
         return new Response(archiveBytes, { status: 200 });

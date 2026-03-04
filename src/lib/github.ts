@@ -4,12 +4,8 @@ import { x as extractArchive } from 'tar'
 
 const GITHUB_OWNER = 'ryougifujino'
 const GITHUB_REPO = 'create-fugi'
-const GITHUB_REPOSITORY_API = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}`
+const GITHUB_DEFAULT_BRANCH = 'main'
 const GITHUB_USER_AGENT = 'create-fugi-cli'
-
-interface GithubRepositoryResponse {
-  default_branch?: string
-}
 
 export interface DownloadTemplatesResult {
   branch: string
@@ -22,31 +18,11 @@ function assertOkResponse(response: Response, requestUrl: string): void {
   }
 }
 
-export async function fetchDefaultBranch(fetchImpl: typeof fetch = fetch): Promise<string> {
-  const response = await fetchImpl(GITHUB_REPOSITORY_API, {
-    headers: {
-      Accept: 'application/vnd.github+json',
-      'User-Agent': GITHUB_USER_AGENT,
-    },
-  })
-
-  assertOkResponse(response, GITHUB_REPOSITORY_API)
-
-  const responseJson = (await response.json()) as GithubRepositoryResponse | undefined
-  const branch = responseJson?.default_branch
-
-  if (typeof branch !== 'string' || branch.length === 0) {
-    throw new Error('Failed to resolve default branch from GitHub response.')
-  }
-
-  return branch
-}
-
 export async function downloadTemplatesDirectory(
   tempRootDir: string,
   fetchImpl: typeof fetch = fetch,
 ): Promise<DownloadTemplatesResult> {
-  const branch = await fetchDefaultBranch(fetchImpl)
+  const branch = GITHUB_DEFAULT_BRANCH
   const tarballUrl = `https://codeload.github.com/${GITHUB_OWNER}/${GITHUB_REPO}/tar.gz/refs/heads/${encodeURIComponent(
     branch,
   )}`
