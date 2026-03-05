@@ -1,11 +1,6 @@
-import { rm, mkdtemp } from 'node:fs/promises'
-import os from 'node:os'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { input, select } from '@inquirer/prompts'
-import {
-  downloadTemplatesDirectory as downloadTemplatesDirectoryFromGithub,
-  type DownloadTemplatesResult,
-} from '../lib/github.js'
 import {
   applyProjectNameTemplate,
   copyTemplate,
@@ -20,7 +15,12 @@ export interface CreateCommandDependencies {
   log?: (message: string) => void
   promptTemplate?: (templates: TemplateEntry[]) => Promise<string>
   promptProjectName?: () => Promise<string>
-  downloadTemplatesDirectory?: (tempRootDir: string) => Promise<DownloadTemplatesResult>
+  templatesRootDir?: string
+}
+
+function resolveBundledTemplatesRootDir(): string {
+  const commandDir = path.dirname(fileURLToPath(import.meta.url))
+  return path.resolve(commandDir, '../../templates')
 }
 
 async function promptTemplateName(templates: TemplateEntry[]): Promise<string> {
@@ -55,38 +55,31 @@ export async function runCreateCommand(dependencies: CreateCommandDependencies =
   const cwd = dependencies.cwd ?? process.cwd()
   const selectTemplate = dependencies.promptTemplate ?? promptTemplateName
   const askProjectName = dependencies.promptProjectName ?? promptProjectName
-  const downloadTemplatesDirectory = dependencies.downloadTemplatesDirectory ?? downloadTemplatesDirectoryFromGithub
 
-  const tempRootDir = await mkdtemp(path.join(os.tmpdir(), 'create-fugi-'))
+  const templatesRootDir = dependencies.templatesRootDir ?? resolveBundledTemplatesRootDir()
+  log('Loading templates from local package...')
 
-  try {
-    log('Fetching templates from GitHub...')
+  const templates = await listTemplates(templatesRootDir)
 
-    const { templatesRootDir } = await downloadTemplatesDirectory(tempRootDir)
-    const templates = await listTemplates(templatesRootDir)
-
-    if (templates.length === 0) {
-      throw new Error('No templates found in remote repository')
-    }
-
-    const selectedTemplateName = await selectTemplate(templates)
-    const selectedTemplate = templates.find((template) => template.name === selectedTemplateName)
-
-    if (selectedTemplate === undefined) {
-      throw new Error(`Template "${selectedTemplateName}" is not available.`)
-    }
-
-    const rawProjectName = await askProjectName()
-    const projectName = validateProjectName(rawProjectName)
-    const targetDir = path.resolve(cwd, projectName)
-
-    await ensureDirectoryDoesNotExist(targetDir)
-    await copyTemplate(selectedTemplate.absolutePath, targetDir)
-    await applyProjectNameTemplate(targetDir, selectedTemplate.name, projectName)
-
-    log(`Project created at ${targetDir}`)
-    log(`Next steps:\n  cd ${projectName}`)
-  } finally {
-    await rm(tempRootDir, { recursive: true, force: true })
+  if (templates.length === 0) {
+    throw new Error(`No templates found in templates directory: ${templatesRootDir}`)
   }
+
+  const selectedTemplateName = await selectTemplate(templates)
+  const selectedTemplate = templates.find((template) => template.name === selectedTemplateName)
+
+  if (selectedTemplate === undefined) {
+    throw new Error(`Template "${selectedTemplateName}" is not available.`)
+  }
+
+  const rawProjectName = await askProjectName()
+  const projectName = validateProjectName(rawProjectName)
+  const targetDir = path.resolve(cwd, projectName)
+
+  await ensureDirectoryDoesNotExist(targetDir)
+  await copyTemplate(selectedTemplate.absolutePath, targetDir)
+  await applyProjectNameTemplate(targetDir, selectedTemplate.name, projectName)
+
+  log(`Project created at ${targetDir}`)
+  log(`Next steps:\n  cd ${projectName}`)
 }

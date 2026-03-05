@@ -38,10 +38,7 @@ test('runCreateCommand copies selected template into new project directory', asy
       cwd,
       promptTemplate: async () => 'react',
       promptProjectName: async () => 'demo-app',
-      downloadTemplatesDirectory: async () => ({
-        branch: 'main',
-        templatesRootDir,
-      }),
+      templatesRootDir,
       log: () => {},
     });
 
@@ -108,10 +105,7 @@ test('runCreateCommand rewrites scoped package references to the project name', 
       cwd,
       promptTemplate: async () => 'mono-electron-solid',
       promptProjectName: async () => 'demo-app',
-      downloadTemplatesDirectory: async () => ({
-        branch: 'main',
-        templatesRootDir,
-      }),
+      templatesRootDir,
       log: () => {},
     });
 
@@ -154,10 +148,7 @@ test('runCreateCommand fails when target project directory already exists', asyn
         cwd,
         promptTemplate: async () => 'vue',
         promptProjectName: async () => 'existing-app',
-        downloadTemplatesDirectory: async () => ({
-          branch: 'main',
-          templatesRootDir,
-        }),
+        templatesRootDir,
         log: () => {},
       }),
       /Target directory already exists/,

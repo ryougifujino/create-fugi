@@ -11,7 +11,9 @@
     "create-fugi": "dist/index.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "templates",
+    "!templates/**/pnpm-lock.yaml"
   ],
   "scripts": {
     "typecheck": "tsgo --noEmit",
@@ -51,8 +53,7 @@
   "homepage": "https://github.com/ryougifujino/create-fugi#readme",
   "packageManager": "pnpm@10.28.2",
   "dependencies": {
-    "@inquirer/prompts": "8.2.0",
-    "tar": "7.5.7"
+    "@inquirer/prompts": "8.2.0"
   },
   "devDependencies": {
     "@commitlint/cli": "^20.4.1",
