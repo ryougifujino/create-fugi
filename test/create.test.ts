@@ -18,13 +18,17 @@ test('runCreateCommand copies selected template into new project directory', asy
 
   try {
     const templatesRootDir = path.join(tempRootDir, 'templates');
+    const gitignoresRootDir = path.join(tempRootDir, 'gitignores');
     const reactTemplateDir = path.join(templatesRootDir, 'react');
     const cwd = path.join(tempRootDir, 'workspace');
 
     await mkdir(path.join(reactTemplateDir, 'src'), { recursive: true });
+    await mkdir(gitignoresRootDir, { recursive: true });
     await mkdir(cwd, { recursive: true });
     await writeFile(path.join(reactTemplateDir, 'README.md'), '# React');
     await writeFile(path.join(reactTemplateDir, 'src', 'main.ts'), 'main()');
+    await writeFile(path.join(reactTemplateDir, '.gitignore'), '# template-only\n');
+    await writeFile(path.join(gitignoresRootDir, 'react_gitignore'), 'node_modules\n');
     await writeFile(
       path.join(reactTemplateDir, 'package.json'),
       JSON.stringify({ name: 'react' }, null, 2),
@@ -39,6 +43,7 @@ test('runCreateCommand copies selected template into new project directory', asy
       promptTemplate: async () => 'react',
       promptProjectName: async () => 'demo-app',
       templatesRootDir,
+      gitignoresRootDir,
       log: () => {},
     });
 
@@ -58,11 +63,16 @@ test('runCreateCommand copies selected template into new project directory', asy
       path.join(cwd, 'demo-app', 'index.html'),
       'utf-8',
     );
+    const gitignore = await readFile(
+      path.join(cwd, 'demo-app', '.gitignore'),
+      'utf-8',
+    );
 
     assert.equal(readme, '# React');
     assert.equal(mainTs, 'main()');
     assert.match(packageJson, /"name": "demo-app"/);
     assert.match(indexHtml, /<title>demo-app<\/title>/);
+    assert.equal(gitignore, 'node_modules\n');
   } finally {
     await rm(tempRootDir, { recursive: true, force: true });
   }
@@ -73,12 +83,15 @@ test('runCreateCommand rewrites scoped package references to the project name', 
 
   try {
     const templatesRootDir = path.join(tempRootDir, 'templates');
+    const gitignoresRootDir = path.join(tempRootDir, 'gitignores');
     const monoTemplateDir = path.join(templatesRootDir, 'mono-electron-solid');
     const desktopDir = path.join(monoTemplateDir, 'apps', 'desktop');
     const cwd = path.join(tempRootDir, 'workspace');
 
     await mkdir(desktopDir, { recursive: true });
+    await mkdir(gitignoresRootDir, { recursive: true });
     await mkdir(cwd, { recursive: true });
+    await writeFile(path.join(gitignoresRootDir, 'mono-electron-solid_gitignore'), 'node_modules\n');
     await writeFile(
       path.join(monoTemplateDir, 'package.json'),
       JSON.stringify(
@@ -106,6 +119,7 @@ test('runCreateCommand rewrites scoped package references to the project name', 
       promptTemplate: async () => 'mono-electron-solid',
       promptProjectName: async () => 'demo-app',
       templatesRootDir,
+      gitignoresRootDir,
       log: () => {},
     });
 
@@ -126,6 +140,39 @@ test('runCreateCommand rewrites scoped package references to the project name', 
     assert.match(workspacePackageJson, /@demo-app\/desktop/);
     assert.match(desktopPackageJson, /"name": "@demo-app\/desktop"/);
     assert.match(desktopReadme, /@demo-app\/desktop/);
+  } finally {
+    await rm(tempRootDir, { recursive: true, force: true });
+  }
+});
+
+test('runCreateCommand fails when generated template gitignore is missing', async () => {
+  const tempRootDir = await mkdtemp(path.join(os.tmpdir(), 'create-fugi-create-'));
+
+  try {
+    const templatesRootDir = path.join(tempRootDir, 'templates');
+    const gitignoresRootDir = path.join(tempRootDir, 'gitignores');
+    const reactTemplateDir = path.join(templatesRootDir, 'react');
+    const cwd = path.join(tempRootDir, 'workspace');
+
+    await mkdir(reactTemplateDir, { recursive: true });
+    await mkdir(gitignoresRootDir, { recursive: true });
+    await mkdir(cwd, { recursive: true });
+    await writeFile(
+      path.join(reactTemplateDir, 'package.json'),
+      JSON.stringify({ name: 'react' }, null, 2),
+    );
+
+    await assert.rejects(
+      runCreateCommand({
+        cwd,
+        promptTemplate: async () => 'react',
+        promptProjectName: async () => 'demo-app',
+        templatesRootDir,
+        gitignoresRootDir,
+        log: () => {},
+      }),
+      /Missing generated gitignore for template "react"/,
+    );
   } finally {
     await rm(tempRootDir, { recursive: true, force: true });
   }

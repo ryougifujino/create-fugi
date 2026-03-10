@@ -13,11 +13,11 @@
   "files": [
     "dist",
     "templates",
-    "!templates/**/pnpm-lock.yaml"
+    "gitignores"
   ],
   "scripts": {
     "typecheck": "tsgo --noEmit",
-    "build": "rimraf dist && tsgo",
+    "build": "rimraf dist gitignores && node scripts/sync-gitignores.js && tsgo",
     "test": "pnpm typecheck && node --test \"test/**/*.test.ts\"",
     "prepublishOnly": "pnpm test && pnpm build"
   },

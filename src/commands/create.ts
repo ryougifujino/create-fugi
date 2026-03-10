@@ -6,6 +6,7 @@ import {
   copyTemplate,
   ensureDirectoryDoesNotExist,
   listTemplates,
+  restoreTemplateGitignore,
   type TemplateEntry,
   validateProjectName,
 } from '../lib/templates.js'
@@ -16,11 +17,17 @@ export interface CreateCommandDependencies {
   promptTemplate?: (templates: TemplateEntry[]) => Promise<string>
   promptProjectName?: () => Promise<string>
   templatesRootDir?: string
+  gitignoresRootDir?: string
 }
 
 function resolveBundledTemplatesRootDir(): string {
   const commandDir = path.dirname(fileURLToPath(import.meta.url))
   return path.resolve(commandDir, '../../templates')
+}
+
+function resolveBundledGitignoresRootDir(): string {
+  const commandDir = path.dirname(fileURLToPath(import.meta.url))
+  return path.resolve(commandDir, '../../gitignores')
 }
 
 async function promptTemplateName(templates: TemplateEntry[]): Promise<string> {
@@ -57,6 +64,7 @@ export async function runCreateCommand(dependencies: CreateCommandDependencies =
   const askProjectName = dependencies.promptProjectName ?? promptProjectName
 
   const templatesRootDir = dependencies.templatesRootDir ?? resolveBundledTemplatesRootDir()
+  const gitignoresRootDir = dependencies.gitignoresRootDir ?? resolveBundledGitignoresRootDir()
   log('Loading templates from local package...')
 
   const templates = await listTemplates(templatesRootDir)
@@ -78,6 +86,7 @@ export async function runCreateCommand(dependencies: CreateCommandDependencies =
 
   await ensureDirectoryDoesNotExist(targetDir)
   await copyTemplate(selectedTemplate.absolutePath, targetDir)
+  await restoreTemplateGitignore(targetDir, selectedTemplate.name, gitignoresRootDir)
   await applyProjectNameTemplate(targetDir, selectedTemplate.name, projectName)
 
   log(`Project created at ${targetDir}`)

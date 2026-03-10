@@ -2,6 +2,7 @@ import { cp, readdir, readFile, stat, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 
 const PROJECT_NAME_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
+const TEMPLATE_GITIGNORE_SUFFIX = '_gitignore'
 
 export interface TemplateEntry {
   name: string
@@ -65,6 +66,30 @@ export async function copyTemplate(templateDir: string, targetDir: string): Prom
     errorOnExist: true,
     force: false,
   })
+}
+
+export async function restoreTemplateGitignore(
+  targetDir: string,
+  templateName: string,
+  gitignoresRootDir: string,
+): Promise<void> {
+  const sourcePath = path.join(gitignoresRootDir, `${templateName}${TEMPLATE_GITIGNORE_SUFFIX}`)
+
+  let gitignoreContent: string
+  try {
+    gitignoreContent = await readFile(sourcePath, 'utf-8')
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      throw new Error(
+        `Missing generated gitignore for template "${templateName}": ${sourcePath}. Run "pnpm build" to regenerate gitignores.`,
+        { cause: error },
+      )
+    }
+
+    throw error
+  }
+
+  await writeFile(path.join(targetDir, '.gitignore'), gitignoreContent)
 }
 
 export async function applyProjectNameTemplate(
