@@ -9,7 +9,9 @@
   "main": "index.js",
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "build": "tsdown"
+    "dev": "tsdown --watch",
+    "build": "tsdown",
+    "start": "node dist/main.mjs"
   },
   "devDependencies": {
     "@types/node": "catalog:",
