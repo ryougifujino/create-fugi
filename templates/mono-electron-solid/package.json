@@ -36,20 +36,20 @@
     ]
   },
   "devDependencies": {
-    "@commitlint/cli": "^20.4.1",
-    "@commitlint/config-conventional": "^20.4.1",
+    "@commitlint/cli": "^20.4.4",
+    "@commitlint/config-conventional": "^20.4.4",
     "@eslint/js": "^10.0.1",
-    "eslint": "^10.0.0",
+    "eslint": "^10.0.3",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-solid": "^0.14.5",
-    "globals": "^17.3.0",
-    "lefthook": "^2.1.0",
-    "lint-staged": "^16.2.7",
+    "globals": "^17.4.0",
+    "lefthook": "^2.1.4",
+    "lint-staged": "^16.3.3",
     "prettier": "^3.8.1",
     "prettier-plugin-tailwindcss": "^0.7.2",
-    "stylelint": "^17.1.1",
+    "stylelint": "^17.4.0",
     "stylelint-config-standard": "^40.0.0",
-    "typescript-eslint": "^8.54.0"
+    "typescript-eslint": "^8.57.0"
   },
   "pnpm": {
     "overrides": {
