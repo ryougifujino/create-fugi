@@ -6,7 +6,6 @@
   "license": "ISC",
   "author": "",
   "type": "module",
-  "main": "index.js",
   "scripts": {
     "typecheck": "tsc --noEmit",
     "dev": "tsdown --watch",
