@@ -13,7 +13,7 @@
   "scripts": {
     "dev": "pnpm --filter @mono-electron-solid/desktop dev",
     "typecheck": "pnpm -r typecheck",
-    "lint": "pnpm -r lint",
+    "lint": "eslint . --max-warnings=0",
     "stylelint": "stylelint \"apps/**/*.{css,scss}\"",
     "stylelint:fix": "pnpm stylelint --fix \"apps/**/*.{css,scss}\"",
     "format": "prettier --write .",
