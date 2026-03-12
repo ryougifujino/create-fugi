@@ -1,0 +1,19 @@
+{
+  "name": "@mono-node/node",
+  "version": "0.0.0",
+  "description": "",
+  "keywords": [],
+  "license": "ISC",
+  "author": "",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "tsdown"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "tsdown": "^0.20.3",
+    "typescript": "catalog:"
+  }
+}
