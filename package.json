@@ -19,6 +19,7 @@
     "typecheck": "tsgo --noEmit",
     "build": "rimraf dist gitignores && node scripts/sync-gitignores.js && tsgo",
     "test": "pnpm typecheck && node --test \"test/**/*.test.ts\"",
+    "up-template-deps": "node scripts/up-template-deps.js",
     "prepublishOnly": "pnpm test && pnpm build"
   },
   "lint-staged": {
