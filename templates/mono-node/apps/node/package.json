@@ -9,7 +9,7 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "dev": "tsdown --watch",
-    "build": "tsdown",
+    "build": "pnpm typecheck && tsdown",
     "start": "node dist/main.mjs"
   },
   "devDependencies": {
