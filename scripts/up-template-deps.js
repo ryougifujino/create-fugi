@@ -10,6 +10,15 @@ const repoRoot = path.resolve(scriptDir, '..');
 const templatesDir = path.join(repoRoot, 'templates');
 const logFilePath = path.join(repoRoot, 'up-template-deps-report.log');
 const pnpmCommand = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
+const depsValidationScriptWhitelist = [
+  'typecheck',
+  'lint',
+  'stylelint',
+  'format:check',
+  'fmt:check',
+  'test',
+  'build',
+];
 
 const logStream = createWriteStream(logFilePath, { flags: 'w' });
 
@@ -89,6 +98,46 @@ function parseWorkspacePackagePatterns(workspaceContent) {
   return patterns;
 }
 
+function readAvailableScripts(packageJson) {
+  const packageScripts = packageJson?.scripts;
+
+  if (packageScripts === null || typeof packageScripts !== 'object') {
+    return [];
+  }
+
+  return Object.entries(packageScripts)
+    .filter(([, command]) => typeof command === 'string' && command.trim() !== '')
+    .map(([scriptName]) => scriptName)
+    .sort((left, right) => left.localeCompare(right));
+}
+
+function selectValidationScripts(availableScripts) {
+  const availableScriptSet = new Set(availableScripts);
+
+  return depsValidationScriptWhitelist.filter((scriptName) => availableScriptSet.has(scriptName));
+}
+
+function addScriptLabels(scriptMap, scriptNames, label) {
+  for (const scriptName of scriptNames) {
+    const labels = scriptMap.get(scriptName);
+
+    if (labels) {
+      labels.add(label);
+      continue;
+    }
+
+    scriptMap.set(scriptName, new Set([label]));
+  }
+}
+
+function sortScriptMapEntries(scriptMap) {
+  return [...scriptMap.entries()].sort((left, right) => left[0].localeCompare(right[0]));
+}
+
+function formatList(items) {
+  return items.length === 0 ? 'none' : items.join(', ');
+}
+
 async function readPackageJsonIfExists(packageJsonPath) {
   try {
     const raw = await readFile(packageJsonPath, 'utf8');
@@ -102,25 +151,29 @@ async function readPackageJsonIfExists(packageJsonPath) {
   }
 }
 
-async function readBuildTargetForDir(targetDir) {
+async function readValidationTargetForDir(targetDir) {
   const packageJsonPath = path.join(targetDir, 'package.json');
   const packageJson = await readPackageJsonIfExists(packageJsonPath);
-  const buildScript = packageJson?.scripts?.build;
 
-  if (typeof buildScript !== 'string' || buildScript.trim() === '') {
+  if (packageJson === null) {
     return null;
   }
 
+  const availableScripts = readAvailableScripts(packageJson);
+  const validationScripts = selectValidationScripts(availableScripts);
   const relativeDir = relativeToRepo(targetDir);
 
   return {
     cwd: targetDir,
     label: packageJson.name ? `${packageJson.name} (${relativeDir})` : relativeDir,
+    availableScripts,
+    validationScripts,
   };
 }
 
-async function readBuildPlan(templateDir) {
+async function readValidationPlan(templateDir) {
   const workspacePath = path.join(templateDir, 'pnpm-workspace.yaml');
+  const rootTarget = await readValidationTargetForDir(templateDir);
 
   try {
     const rawWorkspaceContent = await readFile(workspacePath, 'utf8');
@@ -134,10 +187,18 @@ async function readBuildPlan(templateDir) {
     }
 
     const targets = [];
+    if (rootTarget) {
+      targets.push(rootTarget);
+    }
+
     const sortedDirs = [...matchedDirs].sort((left, right) => left.localeCompare(right));
 
     for (const targetDir of sortedDirs) {
-      const target = await readBuildTargetForDir(targetDir);
+      if (targetDir === templateDir) {
+        continue;
+      }
+
+      const target = await readValidationTargetForDir(targetDir);
 
       if (target) {
         targets.push(target);
@@ -157,11 +218,9 @@ async function readBuildPlan(templateDir) {
     }
   }
 
-  const target = await readBuildTargetForDir(templateDir);
-
   return {
     strategy: 'single-package root package.json',
-    targets: target ? [target] : [],
+    targets: rootTarget ? [rootTarget] : [],
   };
 }
 
@@ -238,10 +297,14 @@ async function main() {
     totalTemplates: templateDirs.length,
     updateSucceeded: 0,
     updateFailed: [],
-    totalBuildTargets: 0,
-    buildSucceeded: 0,
-    buildFailed: [],
-    buildSkipped: [],
+    totalValidationTargets: 0,
+    totalValidationTasks: 0,
+    validationSucceeded: 0,
+    validationFailed: [],
+    validationSkipped: [],
+    discoveredScripts: new Map(),
+    selectedValidationScripts: new Map(),
+    executedValidationScripts: new Map(),
   };
 
   logLine('=== up-template-deps start ===');
@@ -257,16 +320,28 @@ async function main() {
 
   for (const templateDir of templateDirs) {
     const templateName = path.basename(templateDir);
-    const buildPlan = await readBuildPlan(templateDir);
-    summary.totalBuildTargets += buildPlan.targets.length;
+    const validationPlan = await readValidationPlan(templateDir);
+    summary.totalValidationTargets += validationPlan.targets.length;
+    summary.totalValidationTasks += validationPlan.targets.reduce(
+      (count, target) => count + target.validationScripts.length,
+      0,
+    );
+
+    for (const target of validationPlan.targets) {
+      addScriptLabels(summary.discoveredScripts, target.availableScripts, target.label);
+      addScriptLabels(summary.selectedValidationScripts, target.validationScripts, target.label);
+    }
 
     logLine();
     logLine(`=== Template: ${relativeToRepo(templateDir)} ===`);
-    logLine(`build strategy: ${buildPlan.strategy}`);
+    logLine(`validation strategy: ${validationPlan.strategy}`);
+    logLine(`deps validation whitelist: ${depsValidationScriptWhitelist.join(', ')}`);
     logLine(
-      buildPlan.targets.length === 0
-        ? 'build targets: none'
-        : `build targets: ${buildPlan.targets.map((target) => target.label).join(', ')}`,
+      validationPlan.targets.length === 0
+        ? 'validation targets: none'
+        : `validation targets: ${validationPlan.targets
+            .map((target) => `${target.label} [${formatList(target.validationScripts)}]`)
+            .join('; ')}`,
     );
 
     const updateResult = await runCommand({
@@ -277,31 +352,56 @@ async function main() {
 
     if (!updateResult.ok) {
       summary.updateFailed.push(templateName);
-      summary.buildSkipped.push(...buildPlan.targets.map((target) => target.label));
-      logLine(`Skip builds for ${templateName} because dependency update failed.`, true);
+      summary.validationSkipped.push(
+        ...validationPlan.targets.flatMap((target) =>
+          target.validationScripts.map((scriptName) => `${target.label} -> ${scriptName}`),
+        ),
+      );
+      logLine(`Skip deps validation for ${templateName} because dependency update failed.`, true);
       continue;
     }
 
     summary.updateSucceeded += 1;
 
-    for (const target of buildPlan.targets) {
-      const buildResult = await runCommand({
-        cwd: target.cwd,
-        title: `Build ${target.label}`,
-        args: ['build'],
-      });
+    for (const target of validationPlan.targets) {
+      if (target.validationScripts.length === 0) {
+        logLine(`No whitelisted deps validation scripts found for ${target.label}.`);
+        continue;
+      }
 
-      if (buildResult.ok) {
-        summary.buildSucceeded += 1;
-      } else {
-        summary.buildFailed.push(target.label);
+      for (const scriptName of target.validationScripts) {
+        addScriptLabels(summary.executedValidationScripts, [scriptName], target.label);
+
+        const validationResult = await runCommand({
+          cwd: target.cwd,
+          title: `Run ${scriptName} for ${target.label}`,
+          args: [scriptName],
+        });
+
+        if (validationResult.ok) {
+          summary.validationSucceeded += 1;
+        } else {
+          summary.validationFailed.push(`${target.label} -> ${scriptName}`);
+        }
       }
     }
   }
 
   const finishedAt = new Date().toISOString();
   const duration = formatDuration(Date.now() - startedAt);
-  const hasFailure = summary.updateFailed.length > 0 || summary.buildFailed.length > 0;
+  const hasFailure = summary.updateFailed.length > 0 || summary.validationFailed.length > 0;
+  const discoveredScriptEntries = sortScriptMapEntries(summary.discoveredScripts);
+  const selectedValidationScriptEntries = sortScriptMapEntries(summary.selectedValidationScripts);
+  const executedValidationScriptEntries = sortScriptMapEntries(summary.executedValidationScripts);
+  const discoveredScriptNames = discoveredScriptEntries.map(([scriptName]) => scriptName);
+  const selectedValidationScriptNames = selectedValidationScriptEntries.map(([scriptName]) => scriptName);
+  const executedValidationScriptNames = executedValidationScriptEntries.map(([scriptName]) => scriptName);
+  const discoveredButNotWhitelisted = discoveredScriptNames.filter(
+    (scriptName) => !depsValidationScriptWhitelist.includes(scriptName),
+  );
+  const whitelistedButNotFound = depsValidationScriptWhitelist.filter(
+    (scriptName) => !summary.selectedValidationScripts.has(scriptName),
+  );
 
   logLine();
   logLine('=== Summary ===');
@@ -311,30 +411,60 @@ async function main() {
   if (summary.updateFailed.length > 0) {
     logLine(`failed updates: ${summary.updateFailed.join(', ')}`, true);
   }
-  logLine(`build targets: ${summary.totalBuildTargets}`);
-  logLine(`builds succeeded: ${summary.buildSucceeded}`);
-  logLine(`builds failed: ${summary.buildFailed.length}`);
-  if (summary.buildFailed.length > 0) {
-    logLine(`failed builds: ${summary.buildFailed.join(', ')}`, true);
+  logLine(`validation targets: ${summary.totalValidationTargets}`);
+  logLine(`validation tasks: ${summary.totalValidationTasks}`);
+  logLine(`validations succeeded: ${summary.validationSucceeded}`);
+  logLine(`validations failed: ${summary.validationFailed.length}`);
+  if (summary.validationFailed.length > 0) {
+    logLine(`failed validations: ${summary.validationFailed.join(', ')}`, true);
   }
-  logLine(`builds skipped: ${summary.buildSkipped.length}`);
-  if (summary.buildSkipped.length > 0) {
-    logLine(`skipped builds: ${summary.buildSkipped.join(', ')}`);
+  logLine(`validations skipped: ${summary.validationSkipped.length}`);
+  if (summary.validationSkipped.length > 0) {
+    logLine(`skipped validations: ${summary.validationSkipped.join(', ')}`);
   }
+  logLine();
+  logLine('=== Script Summary ===');
+  logLine(`deps validation whitelist: ${depsValidationScriptWhitelist.join(', ')}`);
+  logLine(`discovered scripts: ${discoveredScriptNames.length}`);
+  logLine(`all discovered script names: ${formatList(discoveredScriptNames)}`);
+  for (const [scriptName, labels] of discoveredScriptEntries) {
+    const sortedLabels = [...labels].sort((left, right) => left.localeCompare(right));
+    logLine(`script "${scriptName}" found in ${sortedLabels.length} package(s): ${sortedLabels.join(', ')}`);
+  }
+  logLine(`deps validation scripts selected by whitelist: ${selectedValidationScriptNames.length}`);
+  logLine(`validation script names selected: ${formatList(selectedValidationScriptNames)}`);
+  for (const [scriptName, labels] of selectedValidationScriptEntries) {
+    const sortedLabels = [...labels].sort((left, right) => left.localeCompare(right));
+    logLine(
+      `script "${scriptName}" selected for deps validation in ${sortedLabels.length} package(s): ${sortedLabels.join(', ')}`,
+    );
+  }
+  logLine(`deps validation scripts executed: ${executedValidationScriptNames.length}`);
+  logLine(`validation script names executed: ${formatList(executedValidationScriptNames)}`);
+  for (const [scriptName, labels] of executedValidationScriptEntries) {
+    const sortedLabels = [...labels].sort((left, right) => left.localeCompare(right));
+    logLine(
+      `script "${scriptName}" executed for deps validation in ${sortedLabels.length} package(s): ${sortedLabels.join(', ')}`,
+    );
+  }
+  logLine(
+    `discovered but not whitelisted scripts: ${formatList(discoveredButNotWhitelisted)}`,
+  );
+  logLine(`whitelisted but not found scripts: ${formatList(whitelistedButNotFound)}`);
   logLine(`finishedAt: ${finishedAt}`);
   logLine(`duration: ${duration}`);
   logLine();
 
   if (hasFailure) {
     logLine(
-      `Conclusion: template dependency updates finished with failures. ${summary.updateFailed.length} update(s) failed and ${summary.buildFailed.length} build(s) failed. See ${path.basename(logFilePath)} for details.`,
+      `Conclusion: template dependency updates finished with failures. ${summary.updateFailed.length} update(s) failed and ${summary.validationFailed.length} deps validation task(s) failed. See ${path.basename(logFilePath)} for details.`,
       true,
     );
     return 1;
   }
 
   logLine(
-    `Conclusion: dependency updates for ${summary.totalTemplates} template(s) and ${summary.totalBuildTargets} build task(s) completed sequentially, all succeeded.`,
+    `Conclusion: dependency updates for ${summary.totalTemplates} template(s) and ${summary.totalValidationTasks} deps validation task(s) completed sequentially, all succeeded.`,
   );
   return 0;
 }
