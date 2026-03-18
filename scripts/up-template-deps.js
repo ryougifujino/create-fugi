@@ -10,6 +10,8 @@ const repoRoot = path.resolve(scriptDir, '..');
 const templatesDir = path.join(repoRoot, 'templates');
 const logFilePath = path.join(repoRoot, 'up-template-deps-report.log');
 const pnpmCommand = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
+const pnpmReporterArgs = ['--reporter=append-only'];
+const verboseConsoleOutput = process.env.UP_TEMPLATE_DEPS_VERBOSE === '1';
 const depsValidationScriptWhitelist = [
   'typecheck',
   'lint',
@@ -22,18 +24,38 @@ const depsValidationScriptWhitelist = [
 
 const logStream = createWriteStream(logFilePath, { flags: 'w' });
 
-function writeOutput(chunk, useStderr = false) {
+function writeConsole(chunk, useStderr = false) {
   if (useStderr) {
     process.stderr.write(chunk);
   } else {
     process.stdout.write(chunk);
   }
+}
 
+function writeLog(chunk) {
   logStream.write(chunk);
 }
 
 function logLine(message = '', useStderr = false) {
-  writeOutput(`${message}\n`, useStderr);
+  const line = `${message}\n`;
+  writeConsole(line, useStderr);
+  writeLog(line);
+}
+
+function logFileLine(message = '') {
+  writeLog(`${message}\n`);
+}
+
+function logBufferedOutputToConsole(output, useStderr = false) {
+  if (output === '') {
+    return;
+  }
+
+  writeConsole(output, useStderr);
+
+  if (!output.endsWith('\n')) {
+    writeConsole('\n', useStderr);
+  }
 }
 
 function formatDuration(durationMs) {
@@ -98,17 +120,22 @@ function parseWorkspacePackagePatterns(workspaceContent) {
   return patterns;
 }
 
-function readAvailableScripts(packageJson) {
+function readScriptCommands(packageJson) {
   const packageScripts = packageJson?.scripts;
 
   if (packageScripts === null || typeof packageScripts !== 'object') {
-    return [];
+    return {};
   }
 
-  return Object.entries(packageScripts)
-    .filter(([, command]) => typeof command === 'string' && command.trim() !== '')
-    .map(([scriptName]) => scriptName)
-    .sort((left, right) => left.localeCompare(right));
+  return Object.fromEntries(
+    Object.entries(packageScripts)
+      .filter(([, command]) => typeof command === 'string' && command.trim() !== '')
+      .map(([scriptName, command]) => [scriptName, command.trim()]),
+  );
+}
+
+function readAvailableScripts(scriptCommands) {
+  return Object.keys(scriptCommands).sort((left, right) => left.localeCompare(right));
 }
 
 function selectValidationScripts(availableScripts) {
@@ -130,12 +157,149 @@ function addScriptLabels(scriptMap, scriptNames, label) {
   }
 }
 
+function addWarnings(warningSet, warnings) {
+  for (const warning of warnings) {
+    warningSet.add(warning);
+  }
+}
+
 function sortScriptMapEntries(scriptMap) {
   return [...scriptMap.entries()].sort((left, right) => left[0].localeCompare(right[0]));
 }
 
 function formatList(items) {
   return items.length === 0 ? 'none' : items.join(', ');
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function stripAnsi(value) {
+  return value.replace(/\u001B\[[0-9;]*m/g, '');
+}
+
+function normalizeWarningLine(line) {
+  return stripAnsi(line).replace(/\s+/g, ' ').trim();
+}
+
+function normalizePackageWarningLine(line) {
+  return normalizeWarningLine(line).replace(/^[.\s│└├─┬]+/, '').trim();
+}
+
+function stripWarnPrefix(line) {
+  return line.replace(/^WARN\s*/i, '').trim();
+}
+
+function extractCommandWarnings(output) {
+  const warnings = [];
+  const seenWarnings = new Set();
+  const lines = output.split(/\r?\n/);
+  let previousNonEmptyLine = '';
+  let sawPeerDependencyBanner = false;
+
+  function pushWarning(message) {
+    if (message === '' || seenWarnings.has(message)) {
+      return;
+    }
+
+    seenWarnings.add(message);
+    warnings.push(message);
+  }
+
+  for (const rawLine of lines) {
+    const line = normalizeWarningLine(rawLine);
+    if (line === '') {
+      continue;
+    }
+
+    if (line.includes('Issues with peer dependencies found')) {
+      sawPeerDependencyBanner = true;
+    } else if (line.includes('deprecated subdependencies found')) {
+      pushWarning(stripWarnPrefix(line));
+    } else if (/unmet peer/i.test(line)) {
+      const packageLine = normalizePackageWarningLine(previousNonEmptyLine);
+      const normalizedLine = normalizePackageWarningLine(line);
+
+      if (packageLine !== '' && packageLine !== normalizedLine) {
+        pushWarning(`${packageLine} -> ${normalizedLine}`);
+      } else {
+        pushWarning(normalizedLine);
+      }
+    }
+
+    previousNonEmptyLine = line;
+  }
+
+  if (warnings.length === 0 && sawPeerDependencyBanner) {
+    pushWarning('peer dependency issues found');
+  }
+
+  return warnings;
+}
+
+function isRecursivePnpmScript(command, scriptName) {
+  if (typeof command !== 'string') {
+    return false;
+  }
+
+  if (!/\bpnpm\b/.test(command) || !/(^|\s)(-r|--recursive)(?=\s|$)/.test(command)) {
+    return false;
+  }
+
+  const scriptPattern = new RegExp(`(?:^|\\s|["'])${escapeRegExp(scriptName)}(?:$|\\s|["'])`);
+  return scriptPattern.test(command);
+}
+
+function deduplicateValidationTargets(targets) {
+  if (targets.length <= 1) {
+    return targets;
+  }
+
+  const [rootTarget, ...childTargets] = targets;
+  const recursiveRootScripts = new Set(
+    rootTarget.validationScripts.filter((scriptName) =>
+      isRecursivePnpmScript(rootTarget.scriptCommands[scriptName], scriptName),
+    ),
+  );
+
+  if (recursiveRootScripts.size === 0) {
+    return targets;
+  }
+
+  return [
+    rootTarget,
+    ...childTargets.map((target) => {
+      const skippedValidationScripts = target.validationScripts.filter((scriptName) =>
+        recursiveRootScripts.has(scriptName),
+      );
+
+      if (skippedValidationScripts.length === 0) {
+        return target;
+      }
+
+      return {
+        ...target,
+        validationScripts: target.validationScripts.filter(
+          (scriptName) => !recursiveRootScripts.has(scriptName),
+        ),
+        skippedValidationScripts,
+      };
+    }),
+  ];
+}
+
+function formatTargetValidationPlan(target) {
+  const planParts = [];
+  planParts.push(`selected: ${formatList(target.validationScripts)}`);
+
+  if (target.skippedValidationScripts.length > 0) {
+    planParts.push(
+      `skipped as covered by recursive root script: ${target.skippedValidationScripts.join(', ')}`,
+    );
+  }
+
+  return `${target.label} -> ${planParts.join(' | ')}`;
 }
 
 async function readPackageJsonIfExists(packageJsonPath) {
@@ -159,7 +323,8 @@ async function readValidationTargetForDir(targetDir) {
     return null;
   }
 
-  const availableScripts = readAvailableScripts(packageJson);
+  const scriptCommands = readScriptCommands(packageJson);
+  const availableScripts = readAvailableScripts(scriptCommands);
   const validationScripts = selectValidationScripts(availableScripts);
   const relativeDir = relativeToRepo(targetDir);
 
@@ -167,7 +332,9 @@ async function readValidationTargetForDir(targetDir) {
     cwd: targetDir,
     label: packageJson.name ? `${packageJson.name} (${relativeDir})` : relativeDir,
     availableScripts,
+    scriptCommands,
     validationScripts,
+    skippedValidationScripts: [],
   };
 }
 
@@ -210,7 +377,7 @@ async function readValidationPlan(templateDir) {
         packagePatterns.length === 0
           ? 'workspace packages from pnpm-workspace.yaml (no package patterns found)'
           : `workspace packages from pnpm-workspace.yaml (${packagePatterns.join(', ')})`,
-      targets,
+      targets: deduplicateValidationTargets(targets),
     };
   } catch (error) {
     if (!(error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT')) {
@@ -226,45 +393,82 @@ async function readValidationPlan(templateDir) {
 
 function runCommand({ cwd, title, args }) {
   return new Promise((resolve) => {
+    const commandArgs = [...pnpmReporterArgs, ...args];
+
     logLine();
     logLine(`>>> ${title}`);
-    logLine(`cwd: ${relativeToRepo(cwd)}`);
-    logLine(`cmd: ${pnpmCommand} ${args.join(' ')}`);
+    if (verboseConsoleOutput) {
+      logLine(`cwd: ${relativeToRepo(cwd)}`);
+      logLine(`cmd: ${pnpmCommand} ${commandArgs.join(' ')}`);
+    } else {
+      logFileLine(`cwd: ${relativeToRepo(cwd)}`);
+      logFileLine(`cmd: ${pnpmCommand} ${commandArgs.join(' ')}`);
+    }
 
     const startedAt = Date.now();
-    const child = spawn(pnpmCommand, args, {
+    const outputEvents = [];
+    const child = spawn(pnpmCommand, commandArgs, {
       cwd,
       env: process.env,
       stdio: ['ignore', 'pipe', 'pipe'],
     });
 
     child.stdout.on('data', (chunk) => {
-      writeOutput(chunk, false);
+      const text = chunk.toString();
+      outputEvents.push(text);
+      writeLog(text);
+      if (verboseConsoleOutput) {
+        writeConsole(text, false);
+      }
     });
 
     child.stderr.on('data', (chunk) => {
-      writeOutput(chunk, true);
+      const text = chunk.toString();
+      outputEvents.push(text);
+      writeLog(text);
+      if (verboseConsoleOutput) {
+        writeConsole(text, true);
+      }
     });
 
     child.on('error', (error) => {
-      logLine(`Command failed to start: ${error.message}`, true);
+      logLine(`<<< ${title} failed to start: ${error.message}`, true);
       resolve({
         ok: false,
         durationMs: Date.now() - startedAt,
         error,
+        warnings: [],
       });
     });
 
     child.on('close', (code, signal) => {
       const durationMs = Date.now() - startedAt;
       const ok = code === 0;
+      const output = outputEvents.join('');
+      const warnings = extractCommandWarnings(output);
+      const warningSuffix =
+        warnings.length === 0 ? '' : ` (${warnings.length} high-signal warning${warnings.length === 1 ? '' : 's'})`;
 
       if (signal) {
         logLine(`<<< ${title} interrupted by signal ${signal} after ${formatDuration(durationMs)}`, true);
       } else if (ok) {
-        logLine(`<<< ${title} succeeded in ${formatDuration(durationMs)}`);
+        logLine(`<<< ${title} succeeded in ${formatDuration(durationMs)}${warningSuffix}`);
       } else {
-        logLine(`<<< ${title} failed with exit code ${code} in ${formatDuration(durationMs)}`, true);
+        logLine(
+          `<<< ${title} failed with exit code ${code} in ${formatDuration(durationMs)}${warningSuffix}`,
+          true,
+        );
+      }
+
+      if (!verboseConsoleOutput && warnings.length > 0) {
+        for (const warning of warnings) {
+          logLine(`warning: ${warning}`);
+        }
+      }
+
+      if (!verboseConsoleOutput && !ok && output.trim() !== '') {
+        logLine(`command context: ${relativeToRepo(cwd)} -> pnpm ${commandArgs.join(' ')}`, true);
+        logBufferedOutputToConsole(output, true);
       }
 
       resolve({
@@ -272,6 +476,7 @@ function runCommand({ cwd, title, args }) {
         code,
         signal,
         durationMs,
+        warnings,
       });
     });
   });
@@ -298,19 +503,23 @@ async function main() {
     updateSucceeded: 0,
     updateFailed: [],
     totalValidationTargets: 0,
-    totalValidationTasks: 0,
+    totalValidationTasksSelected: 0,
+    totalValidationTasksExecuted: 0,
     validationSucceeded: 0,
     validationFailed: [],
     validationSkipped: [],
     discoveredScripts: new Map(),
     selectedValidationScripts: new Map(),
     executedValidationScripts: new Map(),
+    warningsByTemplate: new Map(),
   };
 
   logLine('=== up-template-deps start ===');
   logLine(`repo: ${repoRoot}`);
   logLine(`log: ${logFilePath}`);
   logLine(`startedAt: ${new Date().toISOString()}`);
+  logLine(`console mode: ${verboseConsoleOutput ? 'verbose' : 'concise'}`);
+  logLine(`deps validation whitelist: ${depsValidationScriptWhitelist.join(', ')}`);
 
   if (templateDirs.length === 0) {
     logLine();
@@ -319,10 +528,15 @@ async function main() {
   }
 
   for (const templateDir of templateDirs) {
+    const templateLabel = relativeToRepo(templateDir);
     const templateName = path.basename(templateDir);
     const validationPlan = await readValidationPlan(templateDir);
+    const templateWarnings = new Set();
+    let templateValidationSucceeded = 0;
+    let templateValidationFailed = 0;
+
     summary.totalValidationTargets += validationPlan.targets.length;
-    summary.totalValidationTasks += validationPlan.targets.reduce(
+    summary.totalValidationTasksSelected += validationPlan.targets.reduce(
       (count, target) => count + target.validationScripts.length,
       0,
     );
@@ -333,31 +547,50 @@ async function main() {
     }
 
     logLine();
-    logLine(`=== Template: ${relativeToRepo(templateDir)} ===`);
-    logLine(`validation strategy: ${validationPlan.strategy}`);
-    logLine(`deps validation whitelist: ${depsValidationScriptWhitelist.join(', ')}`);
+    logLine(`=== Template: ${templateLabel} ===`);
+    logLine(`strategy: ${validationPlan.strategy}`);
+    logLine(`targets: ${validationPlan.targets.length}`);
     logLine(
-      validationPlan.targets.length === 0
-        ? 'validation targets: none'
-        : `validation targets: ${validationPlan.targets
-            .map((target) => `${target.label} [${formatList(target.validationScripts)}]`)
-            .join('; ')}`,
+      `validation tasks selected: ${validationPlan.targets.reduce(
+        (count, target) => count + target.validationScripts.length,
+        0,
+      )}`,
     );
+    if (validationPlan.targets.length === 0) {
+      logLine('selected validation scripts: none');
+    } else {
+      logLine('selected validation scripts:');
+      for (const target of validationPlan.targets) {
+        logLine(`- ${formatTargetValidationPlan(target)}`);
+      }
+    }
 
     const updateResult = await runCommand({
       cwd: templateDir,
-      title: `Update dependencies for ${templateName}`,
+      title: `[update] ${templateName}`,
       args: ['update', '!@types/node', '--latest', '-r'],
     });
+    addWarnings(templateWarnings, updateResult.warnings);
 
     if (!updateResult.ok) {
-      summary.updateFailed.push(templateName);
+      summary.updateFailed.push(templateLabel);
       summary.validationSkipped.push(
         ...validationPlan.targets.flatMap((target) =>
           target.validationScripts.map((scriptName) => `${target.label} -> ${scriptName}`),
         ),
       );
-      logLine(`Skip deps validation for ${templateName} because dependency update failed.`, true);
+
+      if (templateWarnings.size > 0) {
+        summary.warningsByTemplate.set(templateLabel, new Set(templateWarnings));
+      }
+
+      logLine(
+        `template summary: update failed; validation tasks skipped: ${validationPlan.targets.reduce(
+          (count, target) => count + target.validationScripts.length,
+          0,
+        )}; warnings: ${templateWarnings.size}`,
+        true,
+      );
       continue;
     }
 
@@ -365,26 +598,43 @@ async function main() {
 
     for (const target of validationPlan.targets) {
       if (target.validationScripts.length === 0) {
-        logLine(`No whitelisted deps validation scripts found for ${target.label}.`);
+        logLine(`skip: ${target.label} has no selected validation scripts after deduplication.`);
         continue;
       }
 
       for (const scriptName of target.validationScripts) {
+        summary.totalValidationTasksExecuted += 1;
         addScriptLabels(summary.executedValidationScripts, [scriptName], target.label);
 
         const validationResult = await runCommand({
           cwd: target.cwd,
-          title: `Run ${scriptName} for ${target.label}`,
+          title: `[validate] ${scriptName} -> ${target.label}`,
           args: [scriptName],
         });
+        addWarnings(templateWarnings, validationResult.warnings);
 
         if (validationResult.ok) {
           summary.validationSucceeded += 1;
+          templateValidationSucceeded += 1;
         } else {
-          summary.validationFailed.push(`${target.label} -> ${scriptName}`);
+          const failureLabel = `${target.label} -> ${scriptName}`;
+          summary.validationFailed.push(failureLabel);
+          templateValidationFailed += 1;
         }
       }
     }
+
+    if (templateWarnings.size > 0) {
+      summary.warningsByTemplate.set(templateLabel, new Set(templateWarnings));
+    }
+
+    logLine(
+      `template summary: update ok; validation tasks passed ${templateValidationSucceeded}/${validationPlan.targets.reduce(
+        (count, target) => count + target.validationScripts.length,
+        0,
+      )}; failed ${templateValidationFailed}; warnings: ${templateWarnings.size}`,
+      templateValidationFailed > 0,
+    );
   }
 
   const finishedAt = new Date().toISOString();
@@ -402,69 +652,71 @@ async function main() {
   const whitelistedButNotFound = depsValidationScriptWhitelist.filter(
     (scriptName) => !summary.selectedValidationScripts.has(scriptName),
   );
+  const warningEntries = [...summary.warningsByTemplate.entries()].sort((left, right) =>
+    left[0].localeCompare(right[0]),
+  );
 
   logLine();
-  logLine('=== Summary ===');
+  logLine('=== Run Summary ===');
   logLine(`templates: ${summary.totalTemplates}`);
-  logLine(`updates succeeded: ${summary.updateSucceeded}`);
-  logLine(`updates failed: ${summary.updateFailed.length}`);
+  logLine(`updates: ${summary.updateSucceeded} succeeded, ${summary.updateFailed.length} failed`);
   if (summary.updateFailed.length > 0) {
-    logLine(`failed updates: ${summary.updateFailed.join(', ')}`, true);
+    logLine(`failed update templates: ${summary.updateFailed.join(', ')}`, true);
   }
   logLine(`validation targets: ${summary.totalValidationTargets}`);
-  logLine(`validation tasks: ${summary.totalValidationTasks}`);
-  logLine(`validations succeeded: ${summary.validationSucceeded}`);
-  logLine(`validations failed: ${summary.validationFailed.length}`);
+  logLine(`validation tasks selected: ${summary.totalValidationTasksSelected}`);
+  logLine(`validation tasks executed: ${summary.totalValidationTasksExecuted}`);
+  logLine(`validation tasks succeeded: ${summary.validationSucceeded}`);
+  logLine(`validation tasks failed: ${summary.validationFailed.length}`);
   if (summary.validationFailed.length > 0) {
-    logLine(`failed validations: ${summary.validationFailed.join(', ')}`, true);
+    logLine(`failed validation tasks: ${summary.validationFailed.join(', ')}`, true);
   }
-  logLine(`validations skipped: ${summary.validationSkipped.length}`);
+  logLine(`validation tasks skipped: ${summary.validationSkipped.length}`);
   if (summary.validationSkipped.length > 0) {
-    logLine(`skipped validations: ${summary.validationSkipped.join(', ')}`);
+    logLine(`skipped validation tasks: ${summary.validationSkipped.join(', ')}`);
   }
+  logLine(`templates with high-signal warnings: ${warningEntries.length}`);
+
+  if (warningEntries.length > 0) {
+    logLine();
+    logLine('=== Warning Summary ===');
+    for (const [templateLabel, warnings] of warningEntries) {
+      logLine(`${templateLabel}:`);
+      for (const warning of [...warnings].sort((left, right) => left.localeCompare(right))) {
+        logLine(`- ${warning}`);
+      }
+    }
+  }
+
   logLine();
-  logLine('=== Script Summary ===');
-  logLine(`deps validation whitelist: ${depsValidationScriptWhitelist.join(', ')}`);
-  logLine(`discovered scripts: ${discoveredScriptNames.length}`);
-  logLine(`all discovered script names: ${formatList(discoveredScriptNames)}`);
-  for (const [scriptName, labels] of discoveredScriptEntries) {
-    const sortedLabels = [...labels].sort((left, right) => left.localeCompare(right));
-    logLine(`script "${scriptName}" found in ${sortedLabels.length} package(s): ${sortedLabels.join(', ')}`);
-  }
-  logLine(`deps validation scripts selected by whitelist: ${selectedValidationScriptNames.length}`);
-  logLine(`validation script names selected: ${formatList(selectedValidationScriptNames)}`);
-  for (const [scriptName, labels] of selectedValidationScriptEntries) {
-    const sortedLabels = [...labels].sort((left, right) => left.localeCompare(right));
-    logLine(
-      `script "${scriptName}" selected for deps validation in ${sortedLabels.length} package(s): ${sortedLabels.join(', ')}`,
-    );
-  }
-  logLine(`deps validation scripts executed: ${executedValidationScriptNames.length}`);
-  logLine(`validation script names executed: ${formatList(executedValidationScriptNames)}`);
+  logLine('=== Script Coverage Summary ===');
+  logLine(`unique discovered script names: ${discoveredScriptNames.length}`);
+  logLine(`discovered script names: ${formatList(discoveredScriptNames)}`);
+  logLine(`unique validation script names selected: ${selectedValidationScriptNames.length}`);
+  logLine(`selected validation script names: ${formatList(selectedValidationScriptNames)}`);
+  logLine(`unique validation script names executed: ${executedValidationScriptNames.length}`);
+  logLine(`executed validation script names: ${formatList(executedValidationScriptNames)}`);
   for (const [scriptName, labels] of executedValidationScriptEntries) {
     const sortedLabels = [...labels].sort((left, right) => left.localeCompare(right));
-    logLine(
-      `script "${scriptName}" executed for deps validation in ${sortedLabels.length} package(s): ${sortedLabels.join(', ')}`,
-    );
+    logLine(`validation coverage: ${scriptName} -> ${sortedLabels.length} package(s): ${sortedLabels.join(', ')}`);
   }
-  logLine(
-    `discovered but not whitelisted scripts: ${formatList(discoveredButNotWhitelisted)}`,
-  );
-  logLine(`whitelisted but not found scripts: ${formatList(whitelistedButNotFound)}`);
+  logLine(`non-whitelisted discovered script names: ${formatList(discoveredButNotWhitelisted)}`);
+  logLine(`whitelisted but absent script names: ${formatList(whitelistedButNotFound)}`);
+  logLine(`full raw log: ${logFilePath}`);
   logLine(`finishedAt: ${finishedAt}`);
   logLine(`duration: ${duration}`);
   logLine();
 
   if (hasFailure) {
     logLine(
-      `Conclusion: template dependency updates finished with failures. ${summary.updateFailed.length} update(s) failed and ${summary.validationFailed.length} deps validation task(s) failed. See ${path.basename(logFilePath)} for details.`,
+      `Conclusion: template dependency updates finished with failures. ${summary.updateFailed.length} update(s) failed and ${summary.validationFailed.length} validation task(s) failed. See ${path.basename(logFilePath)} for details.`,
       true,
     );
     return 1;
   }
 
   logLine(
-    `Conclusion: dependency updates for ${summary.totalTemplates} template(s) and ${summary.totalValidationTasks} deps validation task(s) completed sequentially, all succeeded.`,
+    `Conclusion: dependency updates for ${summary.totalTemplates} template(s) and ${summary.totalValidationTasksExecuted} executed validation task(s) completed successfully.`,
   );
   return 0;
 }
