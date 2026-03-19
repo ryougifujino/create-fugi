@@ -4,6 +4,8 @@ import { glob, readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
+import chalk from 'chalk';
+import ora from 'ora';
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, '..');
@@ -12,6 +14,7 @@ const logFilePath = path.join(repoRoot, 'up-template-deps-report.log');
 const pnpmCommand = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
 const pnpmReporterArgs = ['--reporter=append-only'];
 const verboseConsoleOutput = process.env.UP_TEMPLATE_DEPS_VERBOSE === '1';
+const spinnerEnabled = !verboseConsoleOutput && process.stderr.isTTY;
 const depsValidationScriptWhitelist = [
   'typecheck',
   'lint',
@@ -21,6 +24,16 @@ const depsValidationScriptWhitelist = [
   'test',
   'build',
 ];
+
+const color = {
+  heading: chalk.bold.cyan,
+  subheading: chalk.bold.blue,
+  info: chalk.cyan,
+  success: chalk.green,
+  warning: chalk.yellow,
+  error: chalk.red,
+  muted: chalk.gray,
+};
 
 const logStream = createWriteStream(logFilePath, { flags: 'w' });
 
@@ -36,14 +49,43 @@ function writeLog(chunk) {
   logStream.write(chunk);
 }
 
-function logLine(message = '', useStderr = false) {
+function logLine(message = '', useStderr = false, consoleMessage = message) {
   const line = `${message}\n`;
-  writeConsole(line, useStderr);
+  const consoleLine = `${consoleMessage}\n`;
+  writeConsole(consoleLine, useStderr);
   writeLog(line);
 }
 
 function logFileLine(message = '') {
   writeLog(`${message}\n`);
+}
+
+function logSectionLine(title) {
+  logLine(title, false, color.heading(title));
+}
+
+function logSubsectionLine(title) {
+  logLine(title, false, color.subheading(title));
+}
+
+function logInfoLine(message) {
+  logLine(message, false, color.info(message));
+}
+
+function logMutedLine(message) {
+  logLine(message, false, color.muted(message));
+}
+
+function logWarningLine(message, useStderr = false) {
+  logLine(message, useStderr, color.warning(message));
+}
+
+function logErrorLine(message) {
+  logLine(message, true, color.error(message));
+}
+
+function logSuccessLine(message) {
+  logLine(message, false, color.success(message));
 }
 
 function logBufferedOutputToConsole(output, useStderr = false) {
@@ -395,14 +437,25 @@ function runCommand({ cwd, title, args }) {
   return new Promise((resolve) => {
     const commandArgs = [...pnpmReporterArgs, ...args];
 
-    logLine();
-    logLine(`>>> ${title}`);
+    logFileLine();
+    logFileLine(`>>> ${title}`);
+    logFileLine(`cwd: ${relativeToRepo(cwd)}`);
+    logFileLine(`cmd: ${pnpmCommand} ${commandArgs.join(' ')}`);
+
+    let spinner = null;
+
     if (verboseConsoleOutput) {
-      logLine(`cwd: ${relativeToRepo(cwd)}`);
-      logLine(`cmd: ${pnpmCommand} ${commandArgs.join(' ')}`);
+      logLine();
+      logSubsectionLine(`>>> ${title}`);
+      logMutedLine(`cwd: ${relativeToRepo(cwd)}`);
+      logMutedLine(`cmd: ${pnpmCommand} ${commandArgs.join(' ')}`);
+    } else if (spinnerEnabled) {
+      spinner = ora({
+        text: color.info(`${title} (${relativeToRepo(cwd)})`),
+        stream: process.stderr,
+      }).start();
     } else {
-      logFileLine(`cwd: ${relativeToRepo(cwd)}`);
-      logFileLine(`cmd: ${pnpmCommand} ${commandArgs.join(' ')}`);
+      logInfoLine(`>>> ${title} (${relativeToRepo(cwd)})`);
     }
 
     const startedAt = Date.now();
@@ -432,7 +485,15 @@ function runCommand({ cwd, title, args }) {
     });
 
     child.on('error', (error) => {
-      logLine(`<<< ${title} failed to start: ${error.message}`, true);
+      const message = `<<< ${title} failed to start: ${error.message}`;
+      logFileLine(message);
+
+      if (spinner) {
+        spinner.fail(color.error(`${title} failed to start: ${error.message}`));
+      } else {
+        logErrorLine(message);
+      }
+
       resolve({
         ok: false,
         durationMs: Date.now() - startedAt,
@@ -449,25 +510,48 @@ function runCommand({ cwd, title, args }) {
       const warningSuffix =
         warnings.length === 0 ? '' : ` (${warnings.length} high-signal warning${warnings.length === 1 ? '' : 's'})`;
 
+      let finalMessage;
+
       if (signal) {
-        logLine(`<<< ${title} interrupted by signal ${signal} after ${formatDuration(durationMs)}`, true);
+        finalMessage = `<<< ${title} interrupted by signal ${signal} after ${formatDuration(durationMs)}`;
       } else if (ok) {
-        logLine(`<<< ${title} succeeded in ${formatDuration(durationMs)}${warningSuffix}`);
+        finalMessage = `<<< ${title} succeeded in ${formatDuration(durationMs)}${warningSuffix}`;
       } else {
-        logLine(
-          `<<< ${title} failed with exit code ${code} in ${formatDuration(durationMs)}${warningSuffix}`,
-          true,
-        );
+        finalMessage = `<<< ${title} failed with exit code ${code} in ${formatDuration(durationMs)}${warningSuffix}`;
+      }
+
+      logFileLine(finalMessage);
+
+      if (spinner) {
+        if (signal) {
+          spinner.fail(color.error(`${title} interrupted by signal ${signal} (${formatDuration(durationMs)})`));
+        } else if (ok) {
+          spinner.succeed(
+            color.success(
+              `${title} succeeded in ${formatDuration(durationMs)}${warningSuffix}`,
+            ),
+          );
+        } else {
+          spinner.fail(
+            color.error(
+              `${title} failed with exit code ${code} in ${formatDuration(durationMs)}${warningSuffix}`,
+            ),
+          );
+        }
+      } else if (signal || !ok) {
+        logErrorLine(finalMessage);
+      } else {
+        logSuccessLine(finalMessage);
       }
 
       if (!verboseConsoleOutput && warnings.length > 0) {
         for (const warning of warnings) {
-          logLine(`warning: ${warning}`);
+          logWarningLine(`warning: ${warning}`);
         }
       }
 
       if (!verboseConsoleOutput && !ok && output.trim() !== '') {
-        logLine(`command context: ${relativeToRepo(cwd)} -> pnpm ${commandArgs.join(' ')}`, true);
+        logErrorLine(`command context: ${relativeToRepo(cwd)} -> pnpm ${commandArgs.join(' ')}`);
         logBufferedOutputToConsole(output, true);
       }
 
@@ -514,16 +598,17 @@ async function main() {
     warningsByTemplate: new Map(),
   };
 
-  logLine('=== up-template-deps start ===');
-  logLine(`repo: ${repoRoot}`);
-  logLine(`log: ${logFilePath}`);
-  logLine(`startedAt: ${new Date().toISOString()}`);
-  logLine(`console mode: ${verboseConsoleOutput ? 'verbose' : 'concise'}`);
-  logLine(`deps validation whitelist: ${depsValidationScriptWhitelist.join(', ')}`);
+  logSectionLine('=== up-template-deps start ===');
+  logMutedLine(`repo: ${repoRoot}`);
+  logMutedLine(`log: ${logFilePath}`);
+  logMutedLine(`startedAt: ${new Date().toISOString()}`);
+  logMutedLine(`console mode: ${verboseConsoleOutput ? 'verbose' : 'concise'}`);
+  logMutedLine(`spinner: ${spinnerEnabled ? 'enabled' : 'disabled'}`);
+  logMutedLine(`deps validation whitelist: ${depsValidationScriptWhitelist.join(', ')}`);
 
   if (templateDirs.length === 0) {
     logLine();
-    logLine('Conclusion: no template directories were found under templates, nothing to update.');
+    logWarningLine('Conclusion: no template directories were found under templates, nothing to update.');
     return 0;
   }
 
@@ -547,21 +632,21 @@ async function main() {
     }
 
     logLine();
-    logLine(`=== Template: ${templateLabel} ===`);
-    logLine(`strategy: ${validationPlan.strategy}`);
-    logLine(`targets: ${validationPlan.targets.length}`);
-    logLine(
+    logSectionLine(`=== Template: ${templateLabel} ===`);
+    logMutedLine(`strategy: ${validationPlan.strategy}`);
+    logMutedLine(`targets: ${validationPlan.targets.length}`);
+    logMutedLine(
       `validation tasks selected: ${validationPlan.targets.reduce(
         (count, target) => count + target.validationScripts.length,
         0,
       )}`,
     );
     if (validationPlan.targets.length === 0) {
-      logLine('selected validation scripts: none');
+      logMutedLine('selected validation scripts: none');
     } else {
-      logLine('selected validation scripts:');
+      logMutedLine('selected validation scripts:');
       for (const target of validationPlan.targets) {
-        logLine(`- ${formatTargetValidationPlan(target)}`);
+        logMutedLine(`- ${formatTargetValidationPlan(target)}`);
       }
     }
 
@@ -584,12 +669,11 @@ async function main() {
         summary.warningsByTemplate.set(templateLabel, new Set(templateWarnings));
       }
 
-      logLine(
+      logErrorLine(
         `template summary: update failed; validation tasks skipped: ${validationPlan.targets.reduce(
           (count, target) => count + target.validationScripts.length,
           0,
         )}; warnings: ${templateWarnings.size}`,
-        true,
       );
       continue;
     }
@@ -598,7 +682,7 @@ async function main() {
 
     for (const target of validationPlan.targets) {
       if (target.validationScripts.length === 0) {
-        logLine(`skip: ${target.label} has no selected validation scripts after deduplication.`);
+        logMutedLine(`skip: ${target.label} has no selected validation scripts after deduplication.`);
         continue;
       }
 
@@ -628,13 +712,18 @@ async function main() {
       summary.warningsByTemplate.set(templateLabel, new Set(templateWarnings));
     }
 
-    logLine(
-      `template summary: update ok; validation tasks passed ${templateValidationSucceeded}/${validationPlan.targets.reduce(
-        (count, target) => count + target.validationScripts.length,
-        0,
-      )}; failed ${templateValidationFailed}; warnings: ${templateWarnings.size}`,
-      templateValidationFailed > 0,
-    );
+    const templateSummaryMessage = `template summary: update ok; validation tasks passed ${templateValidationSucceeded}/${validationPlan.targets.reduce(
+      (count, target) => count + target.validationScripts.length,
+      0,
+    )}; failed ${templateValidationFailed}; warnings: ${templateWarnings.size}`;
+
+    if (templateValidationFailed > 0) {
+      logErrorLine(templateSummaryMessage);
+    } else if (templateWarnings.size > 0) {
+      logWarningLine(templateSummaryMessage);
+    } else {
+      logSuccessLine(templateSummaryMessage);
+    }
   }
 
   const finishedAt = new Date().toISOString();
@@ -657,11 +746,11 @@ async function main() {
   );
 
   logLine();
-  logLine('=== Run Summary ===');
+  logSectionLine('=== Run Summary ===');
   logLine(`templates: ${summary.totalTemplates}`);
   logLine(`updates: ${summary.updateSucceeded} succeeded, ${summary.updateFailed.length} failed`);
   if (summary.updateFailed.length > 0) {
-    logLine(`failed update templates: ${summary.updateFailed.join(', ')}`, true);
+    logErrorLine(`failed update templates: ${summary.updateFailed.join(', ')}`);
   }
   logLine(`validation targets: ${summary.totalValidationTargets}`);
   logLine(`validation tasks selected: ${summary.totalValidationTasksSelected}`);
@@ -669,27 +758,27 @@ async function main() {
   logLine(`validation tasks succeeded: ${summary.validationSucceeded}`);
   logLine(`validation tasks failed: ${summary.validationFailed.length}`);
   if (summary.validationFailed.length > 0) {
-    logLine(`failed validation tasks: ${summary.validationFailed.join(', ')}`, true);
+    logErrorLine(`failed validation tasks: ${summary.validationFailed.join(', ')}`);
   }
   logLine(`validation tasks skipped: ${summary.validationSkipped.length}`);
   if (summary.validationSkipped.length > 0) {
-    logLine(`skipped validation tasks: ${summary.validationSkipped.join(', ')}`);
+    logWarningLine(`skipped validation tasks: ${summary.validationSkipped.join(', ')}`);
   }
   logLine(`templates with high-signal warnings: ${warningEntries.length}`);
 
   if (warningEntries.length > 0) {
     logLine();
-    logLine('=== Warning Summary ===');
+    logSectionLine('=== Warning Summary ===');
     for (const [templateLabel, warnings] of warningEntries) {
-      logLine(`${templateLabel}:`);
+      logWarningLine(`${templateLabel}:`);
       for (const warning of [...warnings].sort((left, right) => left.localeCompare(right))) {
-        logLine(`- ${warning}`);
+        logWarningLine(`- ${warning}`);
       }
     }
   }
 
   logLine();
-  logLine('=== Script Coverage Summary ===');
+  logSectionLine('=== Script Coverage Summary ===');
   logLine(`unique discovered script names: ${discoveredScriptNames.length}`);
   logLine(`discovered script names: ${formatList(discoveredScriptNames)}`);
   logLine(`unique validation script names selected: ${selectedValidationScriptNames.length}`);
@@ -702,20 +791,19 @@ async function main() {
   }
   logLine(`non-whitelisted discovered script names: ${formatList(discoveredButNotWhitelisted)}`);
   logLine(`whitelisted but absent script names: ${formatList(whitelistedButNotFound)}`);
-  logLine(`full raw log: ${logFilePath}`);
-  logLine(`finishedAt: ${finishedAt}`);
-  logLine(`duration: ${duration}`);
+  logMutedLine(`full raw log: ${logFilePath}`);
+  logMutedLine(`finishedAt: ${finishedAt}`);
+  logMutedLine(`duration: ${duration}`);
   logLine();
 
   if (hasFailure) {
-    logLine(
+    logErrorLine(
       `Conclusion: template dependency updates finished with failures. ${summary.updateFailed.length} update(s) failed and ${summary.validationFailed.length} validation task(s) failed. See ${path.basename(logFilePath)} for details.`,
-      true,
     );
     return 1;
   }
 
-  logLine(
+  logSuccessLine(
     `Conclusion: dependency updates for ${summary.totalTemplates} template(s) and ${summary.totalValidationTasksExecuted} executed validation task(s) completed successfully.`,
   );
   return 0;
@@ -727,9 +815,8 @@ try {
   exitCode = await main();
 } catch (error) {
   logLine();
-  logLine(
+  logErrorLine(
     `Conclusion: an unhandled error occurred during execution: ${error instanceof Error ? error.stack ?? error.message : String(error)}`,
-    true,
   );
   exitCode = 1;
 }
