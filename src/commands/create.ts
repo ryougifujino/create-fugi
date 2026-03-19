@@ -1,6 +1,6 @@
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { input, select } from '@inquirer/prompts'
+import { select } from '@inquirer/prompts'
 import {
   applyProjectNameTemplate,
   copyTemplate,
@@ -10,6 +10,7 @@ import {
   type TemplateEntry,
   validateProjectName,
 } from '../lib/templates.js'
+import { promptProjectName } from '../prompts/project-name.js'
 
 export interface CreateCommandDependencies {
   cwd?: string
@@ -37,23 +38,6 @@ async function promptTemplateName(templates: TemplateEntry[]): Promise<string> {
       name: template.name,
       value: template.name,
     })),
-  })
-}
-
-async function promptProjectName(): Promise<string> {
-  return input({
-    message: 'Project name',
-    validate: (value) => {
-      try {
-        validateProjectName(value)
-        return true
-      } catch (error) {
-        if (error instanceof Error) {
-          return error.message
-        }
-        return 'Invalid project name.'
-      }
-    },
   })
 }
 
