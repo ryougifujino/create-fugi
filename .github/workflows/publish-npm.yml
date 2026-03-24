@@ -1,0 +1,84 @@
+name: Publish to npm
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: "publish-npm-${{ github.ref }}"
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Validate release version
+        id: release
+        shell: bash
+        run: |
+          node --input-type=module <<'EOF'
+          import fs from 'node:fs';
+
+          const ref = process.env.GITHUB_REF ?? '';
+          const refName = process.env.GITHUB_REF_NAME ?? '';
+          const semver =
+            /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$/;
+
+          if (!ref.startsWith('refs/tags/')) {
+            console.error(`Expected a tag ref, received: ${ref}`);
+            process.exit(1);
+          }
+
+          if (!refName.startsWith('v')) {
+            console.error(`Release tag must start with v: ${refName}`);
+            process.exit(1);
+          }
+
+          const releaseVersion = refName.slice(1);
+          if (!semver.test(releaseVersion)) {
+            console.error(`Release version is not valid semver: ${releaseVersion}`);
+            process.exit(1);
+          }
+
+          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          if (pkg.version !== releaseVersion) {
+            console.error(
+              `package.json version ${pkg.version} does not match release tag version ${releaseVersion}`,
+            );
+            process.exit(1);
+          }
+
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `version=${releaseVersion}\n`);
+          EOF
+
+      - name: Ensure version is not already published
+        run: |
+          if npm view "create-fugi@${{ steps.release.outputs.version }}" version >/dev/null 2>&1; then
+            echo "create-fugi@${{ steps.release.outputs.version }} is already published."
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Publish package
+        run: npm publish --access public
