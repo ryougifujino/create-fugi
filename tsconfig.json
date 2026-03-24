@@ -17,6 +17,8 @@
 
     /* If transpiling with TypeScript: */
     "module": "NodeNext",
+    "allowImportingTsExtensions": true,
+    "rewriteRelativeImportExtensions": true,
     "outDir": "dist",
     "rootDir": "./src",
 

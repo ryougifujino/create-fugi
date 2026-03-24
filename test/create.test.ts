@@ -1,17 +1,9 @@
 import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
-import { createRequire } from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-
-type CreateModule = typeof import('../src/commands/create.js');
-
-const require = createRequire(import.meta.url);
-const { runCreateCommand } = require('../dist/commands/create.js') as Pick<
-  CreateModule,
-  'runCreateCommand'
->;
+import { runCreateCommand } from '../src/commands/create.ts';
 
 test('runCreateCommand copies selected template into new project directory', async () => {
   const tempRootDir = await mkdtemp(path.join(os.tmpdir(), 'create-fugi-create-'));

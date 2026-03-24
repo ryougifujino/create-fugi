@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { pathToFileURL } from 'node:url'
-import { runCreateCommand } from './commands/create.js'
+import { runCreateCommand } from './commands/create.ts'
 
 export const HELP_TEXT = `Usage:
   pnpm create fugi

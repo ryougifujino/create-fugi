@@ -1,6 +1,6 @@
 import { clearLine, clearScreenDown, cursorTo, emitKeypressEvents, moveCursor } from 'node:readline'
 import { input } from '@inquirer/prompts'
-import { validateProjectName } from '../lib/templates.js'
+import { validateProjectName } from '../lib/templates.ts'
 
 export const PROJECT_NAME_PLACEHOLDER = 'fugi-project'
 

@@ -1,24 +1,12 @@
 import assert from 'node:assert/strict';
-import { createRequire } from 'node:module';
 import test from 'node:test';
-
-type ProjectNamePromptModule = typeof import('../src/prompts/project-name.js');
-
-const require = createRequire(import.meta.url);
-const {
+import {
   PROJECT_NAME_PLACEHOLDER,
   createProjectNamePromptState,
   getProjectNamePromptValue,
   reduceProjectNamePromptState,
   renderProjectNameInput,
-} = require('../dist/prompts/project-name.js') as Pick<
-  ProjectNamePromptModule,
-  | 'PROJECT_NAME_PLACEHOLDER'
-  | 'createProjectNamePromptState'
-  | 'getProjectNamePromptValue'
-  | 'reduceProjectNamePromptState'
-  | 'renderProjectNameInput'
->;
+} from '../src/prompts/project-name.ts';
 
 test('renderProjectNameInput shows a dim kebab-case placeholder for empty input', () => {
   assert.equal(

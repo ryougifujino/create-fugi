@@ -9,8 +9,8 @@ import {
   restoreTemplateGitignore,
   type TemplateEntry,
   validateProjectName,
-} from '../lib/templates.js'
-import { promptProjectName } from '../prompts/project-name.js'
+} from '../lib/templates.ts'
+import { promptProjectName } from '../prompts/project-name.ts'
 
 export interface CreateCommandDependencies {
   cwd?: string

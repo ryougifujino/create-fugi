@@ -1,18 +1,13 @@
 import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, rm } from 'node:fs/promises';
-import { createRequire } from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-
-type TemplatesModule = typeof import('../src/lib/templates.js');
-
-const require = createRequire(import.meta.url);
-const { ensureDirectoryDoesNotExist, listTemplates, validateProjectName } =
-  require('../dist/lib/templates.js') as Pick<
-    TemplatesModule,
-    'ensureDirectoryDoesNotExist' | 'listTemplates' | 'validateProjectName'
-  >;
+import {
+  ensureDirectoryDoesNotExist,
+  listTemplates,
+  validateProjectName,
+} from '../src/lib/templates.ts';
 
 test('validateProjectName accepts legal names', () => {
   assert.equal(validateProjectName('demo-app'), 'demo-app');
