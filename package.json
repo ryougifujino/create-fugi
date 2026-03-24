@@ -1,6 +1,6 @@
 {
   "name": "create-fugi",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Scaffold opinionated project templates with strong constraints and quality checks.",
   "type": "module",
   "engines": {
