@@ -17,12 +17,12 @@
     "prepare": "lefthook install"
   },
   "devDependencies": {
-    "@commitlint/cli": "^20.5.0",
-    "@commitlint/config-conventional": "^20.5.0",
-    "lefthook": "^2.1.4",
-    "lint-staged": "^16.4.0",
-    "oxfmt": "^0.41.0",
-    "oxlint": "^1.56.0"
+    "@commitlint/cli": "^20.5.3",
+    "@commitlint/config-conventional": "^20.5.3",
+    "lefthook": "^2.1.6",
+    "lint-staged": "^17.0.2",
+    "oxfmt": "^0.48.0",
+    "oxlint": "^1.63.0"
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx}": [
