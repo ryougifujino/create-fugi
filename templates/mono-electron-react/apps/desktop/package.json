@@ -1,34 +1,32 @@
 {
-  "name": "desktop",
-  "private": true,
+  "name": "@mono-electron-react/desktop",
   "version": "0.0.0",
   "type": "module",
+  "private": true,
+  "main": "dist/main/main.mjs",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
-    "lint": "eslint ",
-    "preview": "vite preview"
+    "dev": "node ./scripts/dev/index.js",
+    "dev:renderer": "vite",
+    "typecheck": "tsc -b --noEmit",
+    "build": "tsc -b && vite build && tsdown",
+    "preview": "pnpm build && electron ."
   },
   "dependencies": {
-    "react": "^19.2.6",
-    "react-dom": "^19.2.6"
+    "react": "catalog:",
+    "react-dom": "catalog:"
   },
   "devDependencies": {
-    "@babel/core": "^7.29.0",
-    "@eslint/js": "^10.0.1",
-    "@rolldown/plugin-babel": "^0.2.3",
-    "@types/babel__core": "^7.20.5",
-    "@types/node": "^24.12.3",
-    "@types/react": "^19.2.14",
-    "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^6.0.1",
-    "babel-plugin-react-compiler": "^1.0.0",
-    "eslint": "^10.3.0",
-    "eslint-plugin-react-hooks": "^7.1.1",
-    "eslint-plugin-react-refresh": "^0.5.2",
-    "globals": "^17.6.0",
-    "typescript": "~6.0.2",
-    "typescript-eslint": "^8.59.2",
-    "vite": "^8.0.12"
+    "@babel/core": "catalog:",
+    "@rolldown/plugin-babel": "catalog:",
+    "@types/babel__core": "catalog:",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
+    "babel-plugin-react-compiler": "catalog:",
+    "electron": "^42.3.0",
+    "tsdown": "^0.22.1",
+    "typescript": "catalog:",
+    "vite": "catalog:"
   }
 }
