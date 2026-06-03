@@ -15,6 +15,7 @@ const pnpmCommand = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
 const pnpmReporterArgs = ['--reporter=append-only'];
 const verboseConsoleOutput = process.env.UP_TEMPLATE_DEPS_VERBOSE === '1';
 const spinnerEnabled = !verboseConsoleOutput && process.stderr.isTTY;
+const pnpmStoreDirCache = new Map();
 const depsValidationScriptWhitelist = [
   'typecheck',
   'lint',
@@ -357,6 +358,61 @@ async function readPackageJsonIfExists(packageJsonPath) {
   }
 }
 
+function parseStoreDirFromModulesYaml(content) {
+  const match = content.match(/^storeDir:\s*(.+)$/m);
+  if (!match) {
+    return null;
+  }
+
+  const value = match[1].trim();
+  if (
+    (value.startsWith("'") && value.endsWith("'")) ||
+    (value.startsWith('"') && value.endsWith('"'))
+  ) {
+    return value.slice(1, -1);
+  }
+
+  return value;
+}
+
+async function resolvePnpmStoreDir(startDir) {
+  const cachedValue = pnpmStoreDirCache.get(startDir);
+  if (cachedValue !== undefined) {
+    return cachedValue;
+  }
+
+  let currentDir = startDir;
+
+  while (currentDir.startsWith(repoRoot)) {
+    const modulesYamlPath = path.join(currentDir, 'node_modules', '.modules.yaml');
+
+    try {
+      const rawModulesYaml = await readFile(modulesYamlPath, 'utf8');
+      const storeDir = parseStoreDirFromModulesYaml(rawModulesYaml);
+      pnpmStoreDirCache.set(startDir, storeDir);
+      return storeDir;
+    } catch (error) {
+      if (!(error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT')) {
+        throw error;
+      }
+    }
+
+    if (currentDir === repoRoot) {
+      break;
+    }
+
+    const parentDir = path.dirname(currentDir);
+    if (parentDir === currentDir) {
+      break;
+    }
+
+    currentDir = parentDir;
+  }
+
+  pnpmStoreDirCache.set(startDir, null);
+  return null;
+}
+
 async function readValidationTargetForDir(targetDir) {
   const packageJsonPath = path.join(targetDir, 'package.json');
   const packageJson = await readPackageJsonIfExists(packageJsonPath);
@@ -433,7 +489,15 @@ async function readValidationPlan(templateDir) {
   };
 }
 
-function runCommand({ cwd, title, args }) {
+async function runCommand({ cwd, title, args }) {
+  const storeDir = await resolvePnpmStoreDir(cwd);
+  const commandEnv = storeDir
+    ? {
+        ...process.env,
+        npm_config_store_dir: storeDir,
+      }
+    : process.env;
+
   return new Promise((resolve) => {
     const commandArgs = [...pnpmReporterArgs, ...args];
 
@@ -448,6 +512,9 @@ function runCommand({ cwd, title, args }) {
       logLine();
       logSubsectionLine(`>>> ${title}`);
       logMutedLine(`cwd: ${relativeToRepo(cwd)}`);
+      if (storeDir) {
+        logMutedLine(`store-dir: ${storeDir}`);
+      }
       logMutedLine(`cmd: ${pnpmCommand} ${commandArgs.join(' ')}`);
     } else if (spinnerEnabled) {
       spinner = ora({
@@ -462,7 +529,7 @@ function runCommand({ cwd, title, args }) {
     const outputEvents = [];
     const child = spawn(pnpmCommand, commandArgs, {
       cwd,
-      env: process.env,
+      env: commandEnv,
       stdio: ['ignore', 'pipe', 'pipe'],
     });
 
@@ -693,7 +760,7 @@ async function main() {
         const validationResult = await runCommand({
           cwd: target.cwd,
           title: `[validate] ${scriptName} -> ${target.label}`,
-          args: [scriptName],
+          args: ['run', scriptName],
         });
         addWarnings(templateWarnings, validationResult.warnings);
 
