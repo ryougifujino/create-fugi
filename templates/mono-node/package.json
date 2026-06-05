@@ -7,6 +7,7 @@
   "author": "",
   "type": "module",
   "scripts": {
+    "dev": "pnpm --filter @mono-node/node dev",
     "commitlint": "commitlint",
     "typecheck": "pnpm -r typecheck",
     "lint": "oxlint",
