@@ -13,7 +13,7 @@
 示例：
 
 - `react`：单包 React 前端模板。
-- `mono-react-hono`：monorepo 全栈模板，前端 React，后端 Hono。
+- `mono-hono-react`：monorepo 全栈模板，前端 React，后端 Hono。
 - 其他主要差异（比如 `electron`）也可以在模板名中体现。
 
 ## 约束与检查

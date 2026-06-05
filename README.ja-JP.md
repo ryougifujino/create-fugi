@@ -13,7 +13,7 @@
 例:
 
 - `react`: シングルパッケージの React フロントエンドテンプレート。
-- `mono-react-hono`: monorepo のフルスタックテンプレート（React + Hono）。
+- `mono-hono-react`: monorepo のフルスタックテンプレート（React + Hono）。
 - ほかの主要差分（例: `electron`）も、必要に応じてテンプレート名で表現します。
 
 ## 制約とチェック

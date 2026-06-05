@@ -13,7 +13,7 @@ Anything not explicitly in the name follows the default conventions.
 Examples:
 
 - `react`: single-package React frontend template.
-- `mono-react-hono`: monorepo full-stack template with React frontend and Hono backend.
+- `mono-hono-react`: monorepo full-stack template with React frontend and Hono backend.
 - Other primary differences (for example, `electron`) can be reflected in template names when needed.
 
 ## Constraints and Checks
