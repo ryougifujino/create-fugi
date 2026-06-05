@@ -9,6 +9,13 @@ $ pnpm dev
 
 `pnpm dev` starts the React frontend on Vite and the Hono server in parallel.
 
+The template includes a small Hono Stack example:
+
+- `packages/api/src/index.ts` exposes `GET /api/hello` and exports `AppType`.
+- `apps/server/src/index.ts` imports `@mono-hono-react/api` and runs it on the Node server.
+- `apps/web/src/App.tsx` imports `AppType` from `@mono-hono-react/api` and calls the route through `hc`.
+- The frontend defaults to `http://localhost:3000` and can be overridden with `VITE_API_BASE_URL`.
+
 ## Available Scripts
 
 From the workspace root, you can run:

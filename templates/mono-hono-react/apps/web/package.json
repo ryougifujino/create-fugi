@@ -10,6 +10,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@mono-hono-react/api": "workspace:*",
+    "hono": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:"
   },
