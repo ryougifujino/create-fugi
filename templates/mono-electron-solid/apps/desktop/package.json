@@ -15,8 +15,10 @@
     "solid-js": "catalog:"
   },
   "devDependencies": {
+    "@tailwindcss/vite": "catalog:",
     "@types/node": "catalog:",
     "electron": "^42.3.1",
+    "tailwindcss": "catalog:",
     "tsdown": "^0.22.1",
     "typescript": "catalog:",
     "vite": "catalog:",

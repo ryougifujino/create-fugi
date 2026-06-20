@@ -8,6 +8,9 @@ $ pnpm dev
 `pnpm dev` starts the renderer on a Vite dev server, watches the Electron
 bundle, and restarts Electron when Electron-side code changes.
 
+Tailwind CSS v4 is preconfigured for the renderer. Add utility classes in
+`src/**/*.tsx` and extend global styles from `src/index.css`.
+
 ## Available Scripts
 
 From the workspace root, you can run:
