@@ -1,6 +1,6 @@
 **English** | [简体中文](./README.zh-CN.md) | [日本語](./README.ja-JP.md)
 
-# create-fugi 
+# create-fugi
 
 This repository provides opinionated project templates.  
 The goal of this repository is to provide templates with constraints and quality checks as complete as possible.
@@ -24,13 +24,16 @@ Examples:
 | `.nvmrc`                    | `24`                                             | Pins the local Node.js major version.                                    |
 | `package.json#engines`      | `node >=24.0.0`                                  | Enforces runtime compatibility.                                          |
 | `packageManager` (Corepack) | `pnpm@10.28.2`                                   | Use Corepack to keep package manager version consistent.                 |
-| ESLint                      | `eslint.config.js`                               | Lints JS/TS with `--max-warnings=0`.                                     |
-| Prettier                    | `.prettierrc.json`                               | Unified formatting rules.                                                |
+| Oxlint                      | `.oxlintrc.json`                                 | Runs JS/TS correctness checks as errors.                                 |
+| Oxfmt                       | `.oxfmtrc.json`                                  | Unified formatting rules and Tailwind CSS class sorting.                 |
 | Stylelint                   | `.stylelintrc.cjs` + `stylelint-config-standard` | Lints CSS/SCSS, including Tailwind at-rule allowances.                   |
 | `tsc --noEmit`              | `pnpm typecheck`                                 | Type-safety gate without generating build output.                        |
 | lefthook                    | `lefthook.yml`                                   | Runs Git hooks like `pre-commit` and `commit-msg`.                       |
 | lint-staged                 | `lint-staged` in `package.json`                  | Lints/formats staged files only.                                         |
 | commitlint                  | `@commitlint/config-conventional`                | Enforces Conventional Commits on commit messages.                        |
+
+`mono-electron-solid` runs `eslint-plugin-solid` through Oxlint's JS-plugin compatibility layer to preserve
+Solid-specific rules. Its ESLint peer is only a compatibility runtime; every lint command still runs Oxlint.
 
 ## Use a Template
 

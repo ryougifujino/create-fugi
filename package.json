@@ -2,11 +2,27 @@
   "name": "create-fugi",
   "version": "1.5.1",
   "description": "Scaffold opinionated project templates with strong constraints and quality checks.",
-  "type": "module",
-  "engines": {
-    "node": ">=24.0.0"
+  "keywords": [
+    "create",
+    "create-fugi",
+    "pnpm",
+    "react",
+    "scaffold",
+    "starter",
+    "template",
+    "typescript",
+    "vite"
+  ],
+  "homepage": "https://github.com/ryougifujino/create-fugi#readme",
+  "bugs": {
+    "url": "https://github.com/ryougifujino/create-fugi/issues"
   },
-  "main": "dist/index.js",
+  "license": "MIT",
+  "author": "ryougifujino",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com:ryougifujino/create-fugi.git"
+  },
   "bin": {
     "create-fugi": "dist/index.js"
   },
@@ -15,7 +31,13 @@
     "templates",
     "gitignores"
   ],
+  "type": "module",
+  "main": "dist/index.js",
   "scripts": {
+    "lint": "oxlint",
+    "lint:fix": "oxlint --fix",
+    "fmt": "oxfmt",
+    "fmt:check": "oxfmt --check",
     "typecheck": "tsgo --noEmit",
     "build": "rimraf dist gitignores && node scripts/sync-gitignores.js && tsgo",
     "test": "pnpm typecheck && node --test \"test/**/*.test.ts\"",
@@ -23,57 +45,35 @@
     "verify-template-dev": "node scripts/verify-template-dev.js",
     "prepublishOnly": "pnpm test && pnpm build"
   },
-  "lint-staged": {
-    "src/**/*.{js,jsx,ts,tsx}": [
-      "eslint --max-warnings=0 --fix",
-      "prettier --write"
-    ],
-    "src/**/*.{json,md,html,yml,yaml}": [
-      "prettier --write"
-    ]
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com:ryougifujino/create-fugi.git"
-  },
-  "keywords": [
-    "create-fugi",
-    "create",
-    "scaffold",
-    "template",
-    "starter",
-    "react",
-    "vite",
-    "typescript",
-    "pnpm"
-  ],
-  "author": "ryougifujino",
-  "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/ryougifujino/create-fugi/issues"
-  },
-  "homepage": "https://github.com/ryougifujino/create-fugi#readme",
-  "packageManager": "pnpm@10.28.2",
   "dependencies": {
     "@inquirer/prompts": "8.2.0"
   },
   "devDependencies": {
     "@commitlint/cli": "^20.4.1",
     "@commitlint/config-conventional": "^20.4.1",
-    "@eslint/js": "^10.0.1",
     "@types/node": "24.10.12",
     "@typescript/native-preview": "7.0.0-dev.20260208.1",
     "chalk": "^5.6.2",
-    "eslint": "^10.0.0",
-    "eslint-config-prettier": "^10.1.8",
-    "globals": "^17.3.0",
     "lefthook": "^2.1.0",
     "lint-staged": "^16.2.7",
     "ora": "^9.3.0",
-    "prettier": "3.8.1",
-    "rimraf": "^6.1.2",
-    "typescript-eslint": "^8.54.0"
+    "oxfmt": "^0.60.0",
+    "oxlint": "^1.75.0",
+    "rimraf": "^6.1.2"
   },
+  "lint-staged": {
+    "src/**/*.{js,jsx,ts,tsx}": [
+      "oxlint --fix",
+      "oxfmt"
+    ],
+    "src/**/*.{json,md,html,yml,yaml}": [
+      "oxfmt"
+    ]
+  },
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "packageManager": "pnpm@10.28.2",
   "pnpm": {
     "onlyBuiltDependencies": [
       "lefthook"

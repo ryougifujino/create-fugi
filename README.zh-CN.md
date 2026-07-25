@@ -1,6 +1,6 @@
 [English](./README.md) | **简体中文** | [日本語](./README.ja-JP.md)
 
-# create-fugi 
+# create-fugi
 
 本仓库提供一组有明确约定的项目模板。  
 本仓库的宗旨是提供尽可能完善的约束与检查工具模板。
@@ -24,13 +24,16 @@
 | `.nvmrc`                     | `24`                                             | 固定本地 Node.js 主版本。                          |
 | `package.json#engines`       | `node >=24.0.0`                                  | 约束运行时兼容范围。                               |
 | `packageManager`（Corepack） | `pnpm@10.28.2`                                   | 通过 Corepack 固定包管理器版本。                   |
-| ESLint                       | `eslint.config.js`                               | JS/TS 代码检查，`--max-warnings=0`。               |
-| Prettier                     | `.prettierrc.json`                               | 统一代码格式。                                     |
+| Oxlint                       | `.oxlintrc.json`                                 | 以 error 级别执行 JS/TS correctness 检查。         |
+| Oxfmt                        | `.oxfmtrc.json`                                  | 统一代码格式并排序 Tailwind CSS class。            |
 | Stylelint                    | `.stylelintrc.cjs` + `stylelint-config-standard` | CSS/SCSS 规范检查，包含 Tailwind at-rule 白名单。  |
 | `tsc --noEmit`               | `pnpm typecheck`                                 | 仅做类型检查，不产出构建文件。                     |
 | lefthook                     | `lefthook.yml`                                   | 管理 `pre-commit`、`commit-msg` 等 Git Hooks。     |
 | lint-staged                  | `package.json` 中 `lint-staged`                  | 仅检查/格式化已暂存文件。                          |
 | commitlint                   | `@commitlint/config-conventional`                | 提交信息遵循 Conventional Commits。                |
+
+`mono-electron-solid` 通过 Oxlint 的 JS-plugin 兼容层执行 `eslint-plugin-solid`，以保留 Solid 专项规则。
+其 ESLint peer 仅作为兼容 runtime；所有 lint 命令仍由 Oxlint 执行。
 
 ## 使用模板
 

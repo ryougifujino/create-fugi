@@ -51,13 +51,13 @@ export class ProcessSupervisor {
 
     this.#shuttingDown = true
     this.#stopPromise = (async () => {
-      for (const childProcess of [...this.#childProcesses]) {
+      for (const childProcess of Array.from(this.#childProcesses)) {
         childProcess.kill('SIGTERM')
       }
 
       await delay(150)
 
-      for (const childProcess of [...this.#childProcesses]) {
+      for (const childProcess of Array.from(this.#childProcesses)) {
         if (!childProcess.killed) {
           childProcess.kill('SIGKILL')
         }
