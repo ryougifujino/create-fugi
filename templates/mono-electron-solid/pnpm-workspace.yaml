@@ -3,10 +3,10 @@ packages:
   - packages/*
 
 catalog:
-  '@tailwindcss/vite': ^4.3.0
+  '@tailwindcss/vite': ^4.3.3
   '@types/node': ^24.12.0
-  solid-js: ^1.9.13
-  tailwindcss: ^4.3.0
-  typescript: ~6.0.3
-  vite: ^8.0.16
-  vite-plugin-solid: ^2.11.12
+  solid-js: ^1.9.14
+  tailwindcss: ^4.3.3
+  typescript: ~7.0.2
+  vite: ^8.1.5
+  vite-plugin-solid: ^2.11.13
