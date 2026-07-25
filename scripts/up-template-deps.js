@@ -15,6 +15,7 @@ const pnpmCommand = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
 const pnpmReporterArgs = ['--reporter=append-only'];
 const verboseConsoleOutput = process.env.UP_TEMPLATE_DEPS_VERBOSE === '1';
 const spinnerEnabled = !verboseConsoleOutput && process.stderr.isTTY;
+const tuiEnabled = spinnerEnabled;
 const pnpmStoreDirCache = new Map();
 const depsValidationScriptWhitelist = [
   'typecheck',
@@ -53,7 +54,9 @@ function writeLog(chunk) {
 function logLine(message = '', useStderr = false, consoleMessage = message) {
   const line = `${message}\n`;
   const consoleLine = `${consoleMessage}\n`;
-  writeConsole(consoleLine, useStderr);
+  if (!tuiEnabled) {
+    writeConsole(consoleLine, useStderr);
+  }
   writeLog(line);
 }
 
@@ -99,6 +102,167 @@ function logBufferedOutputToConsole(output, useStderr = false) {
   if (!output.endsWith('\n')) {
     writeConsole('\n', useStderr);
   }
+}
+
+function writeTuiLine(message = '') {
+  writeConsole(`${message}\n`, true);
+}
+
+function visibleLength(message) {
+  return stripAnsi(message).length;
+}
+
+function fitTuiText(message, width) {
+  if (visibleLength(message) <= width) {
+    return message;
+  }
+
+  return `${stripAnsi(message).slice(0, Math.max(0, width - 1))}…`;
+}
+
+function padTuiText(message, width) {
+  const fittedMessage = fitTuiText(message, width);
+  return `${fittedMessage}${' '.repeat(Math.max(0, width - visibleLength(fittedMessage)))}`;
+}
+
+function renderTuiPanel(title, rows, borderColor = color.info) {
+  const availableWidth = Math.max(36, (process.stderr.columns ?? 80) - 4);
+  const desiredWidth = Math.max(
+    visibleLength(title) + 1,
+    36,
+    ...rows.map((row) => visibleLength(row)),
+  );
+  const contentWidth = Math.min(availableWidth, desiredWidth);
+  const fittedTitle = fitTuiText(title, contentWidth - 1);
+  const topRule = '─'.repeat(Math.max(0, contentWidth - visibleLength(fittedTitle) - 1));
+
+  writeTuiLine(borderColor(`╭─ ${fittedTitle} ${topRule}╮`));
+  for (const row of rows) {
+    writeTuiLine(
+      `${borderColor('│')} ${padTuiText(row, contentWidth)} ${borderColor('│')}`,
+    );
+  }
+  writeTuiLine(borderColor(`╰${'─'.repeat(contentWidth + 2)}╯`));
+}
+
+function pluralize(count, singular, plural = `${singular}s`) {
+  return `${count} ${count === 1 ? singular : plural}`;
+}
+
+function renderTuiHeader(templateCount) {
+  writeTuiLine();
+  renderTuiPanel(
+    'up-template-deps',
+    [
+      `${color.muted('Run')}     ${color.info('Upgrade and validate template dependencies')}`,
+      `${color.muted('Scope')}   ${pluralize(templateCount, 'template')}`,
+      `${color.muted('Report')}  ${path.basename(logFilePath)}`,
+    ],
+    color.heading,
+  );
+}
+
+function renderTuiTemplateHeader({
+  index,
+  total,
+  templateLabel,
+  validationTargetCount,
+  validationTaskCount,
+}) {
+  writeTuiLine();
+  writeTuiLine(
+    `${color.info('◆')} ${chalk.bold(templateLabel)} ${color.muted(`${index}/${total}`)}`,
+  );
+  writeTuiLine(
+    `${color.muted('│')} ${pluralize(validationTargetCount, 'target')} · ${pluralize(
+      validationTaskCount,
+      'validation task',
+    )}`,
+  );
+}
+
+function renderTuiTemplateResult({
+  updateSucceeded,
+  validationSucceeded,
+  validationTotal,
+  validationFailed,
+  warningCount,
+}) {
+  const status =
+    updateSucceeded && validationFailed === 0
+      ? warningCount > 0
+        ? color.warning('completed with warnings')
+        : color.success('completed')
+      : color.error('failed');
+  const updateStatus = updateSucceeded ? color.success('update ✓') : color.error('update ✗');
+  const validationStatus = !updateSucceeded
+    ? color.muted(`${pluralize(validationTotal, 'check')} skipped`)
+    : validationFailed === 0
+      ? color.success(`${validationSucceeded}/${validationTotal} checks ✓`)
+      : color.error(`${validationSucceeded}/${validationTotal} checks · ${validationFailed} failed`);
+  const warningStatus =
+    warningCount === 0
+      ? color.muted('no warnings')
+      : color.warning(pluralize(warningCount, 'warning'));
+
+  writeTuiLine(
+    `${color.muted('└')} ${status} ${color.muted('·')} ${updateStatus} ${color.muted(
+      '·',
+    )} ${validationStatus} ${color.muted('·')} ${warningStatus}`,
+  );
+}
+
+function renderTuiWarnings(warnings) {
+  for (const warning of warnings) {
+    writeTuiLine(`${color.warning('  ⚠')} ${color.warning(warning)}`);
+  }
+}
+
+function formatTuiTaskTitle(title, cwd) {
+  if (title.startsWith('[update] ')) {
+    return `Update dependencies · ${cwd}`;
+  }
+
+  if (title.startsWith('[validate] ')) {
+    return `Validate ${title.slice('[validate] '.length)}`;
+  }
+
+  return `${title} · ${cwd}`;
+}
+
+function renderTuiRunSummary({ summary, duration, hasFailure }) {
+  const totalWarnings = [...summary.warningsByTemplate.values()].reduce(
+    (count, warnings) => count + warnings.size,
+    0,
+  );
+  const status = hasFailure ? 'Finished with failures' : 'Completed';
+  const updateStatus =
+    summary.updateFailed.length === 0
+      ? color.success(`${summary.updateSucceeded}/${summary.totalTemplates} succeeded`)
+      : color.error(`${summary.updateSucceeded}/${summary.totalTemplates} succeeded`);
+  const validationStatus =
+    summary.validationFailed.length === 0
+      ? color.success(`${summary.validationSucceeded}/${summary.totalValidationTasksExecuted} passed`)
+      : color.error(
+          `${summary.validationSucceeded}/${summary.totalValidationTasksExecuted} passed · ${summary.validationFailed.length} failed`,
+        );
+  const warningStatus =
+    totalWarnings === 0
+      ? color.muted('none')
+      : color.warning(`${totalWarnings} across ${pluralize(summary.warningsByTemplate.size, 'template')}`);
+
+  writeTuiLine();
+  renderTuiPanel(
+    status,
+    [
+      `${color.muted('Updates')}      ${updateStatus}`,
+      `${color.muted('Validation')}   ${validationStatus}`,
+      `${color.muted('Warnings')}     ${warningStatus}`,
+      `${color.muted('Duration')}     ${duration}`,
+      `${color.muted('Report')}       ${path.basename(logFilePath)}`,
+    ],
+    hasFailure ? color.error : color.success,
+  );
 }
 
 function formatDuration(durationMs) {
@@ -507,6 +671,7 @@ async function runCommand({ cwd, title, args }) {
     logFileLine(`cmd: ${pnpmCommand} ${commandArgs.join(' ')}`);
 
     let spinner = null;
+    const tuiTaskTitle = formatTuiTaskTitle(title, relativeToRepo(cwd));
 
     if (verboseConsoleOutput) {
       logLine();
@@ -518,7 +683,7 @@ async function runCommand({ cwd, title, args }) {
       logMutedLine(`cmd: ${pnpmCommand} ${commandArgs.join(' ')}`);
     } else if (spinnerEnabled) {
       spinner = ora({
-        text: color.info(`${title} (${relativeToRepo(cwd)})`),
+        text: color.info(tuiTaskTitle),
         stream: process.stderr,
       }).start();
     } else {
@@ -556,7 +721,7 @@ async function runCommand({ cwd, title, args }) {
       logFileLine(message);
 
       if (spinner) {
-        spinner.fail(color.error(`${title} failed to start: ${error.message}`));
+        spinner.fail(color.error(`${tuiTaskTitle} failed to start: ${error.message}`));
       } else {
         logErrorLine(message);
       }
@@ -591,17 +756,21 @@ async function runCommand({ cwd, title, args }) {
 
       if (spinner) {
         if (signal) {
-          spinner.fail(color.error(`${title} interrupted by signal ${signal} (${formatDuration(durationMs)})`));
+          spinner.fail(
+            color.error(
+              `${tuiTaskTitle} interrupted by signal ${signal} (${formatDuration(durationMs)})`,
+            ),
+          );
         } else if (ok) {
           spinner.succeed(
             color.success(
-              `${title} succeeded in ${formatDuration(durationMs)}${warningSuffix}`,
+              `${tuiTaskTitle} succeeded in ${formatDuration(durationMs)}${warningSuffix}`,
             ),
           );
         } else {
           spinner.fail(
             color.error(
-              `${title} failed with exit code ${code} in ${formatDuration(durationMs)}${warningSuffix}`,
+              `${tuiTaskTitle} failed with exit code ${code} in ${formatDuration(durationMs)}${warningSuffix}`,
             ),
           );
         }
@@ -612,6 +781,10 @@ async function runCommand({ cwd, title, args }) {
       }
 
       if (!verboseConsoleOutput && warnings.length > 0) {
+        if (tuiEnabled) {
+          renderTuiWarnings(warnings);
+        }
+
         for (const warning of warnings) {
           logWarningLine(`warning: ${warning}`);
         }
@@ -673,13 +846,20 @@ async function main() {
   logMutedLine(`spinner: ${spinnerEnabled ? 'enabled' : 'disabled'}`);
   logMutedLine(`deps validation whitelist: ${depsValidationScriptWhitelist.join(', ')}`);
 
+  if (tuiEnabled) {
+    renderTuiHeader(templateDirs.length);
+  }
+
   if (templateDirs.length === 0) {
     logLine();
     logWarningLine('Conclusion: no template directories were found under templates, nothing to update.');
+    if (tuiEnabled) {
+      renderTuiPanel('Nothing to update', [color.warning('No template directories found.')], color.warning);
+    }
     return 0;
   }
 
-  for (const templateDir of templateDirs) {
+  for (const [templateIndex, templateDir] of templateDirs.entries()) {
     const templateLabel = relativeToRepo(templateDir);
     const templateName = path.basename(templateDir);
     const validationPlan = await readValidationPlan(templateDir);
@@ -717,6 +897,21 @@ async function main() {
       }
     }
 
+    const templateValidationTaskCount = validationPlan.targets.reduce(
+      (count, target) => count + target.validationScripts.length,
+      0,
+    );
+
+    if (tuiEnabled) {
+      renderTuiTemplateHeader({
+        index: templateIndex + 1,
+        total: templateDirs.length,
+        templateLabel,
+        validationTargetCount: validationPlan.targets.length,
+        validationTaskCount: templateValidationTaskCount,
+      });
+    }
+
     const updateResult = await runCommand({
       cwd: templateDir,
       title: `[update] ${templateName}`,
@@ -742,6 +937,15 @@ async function main() {
           0,
         )}; warnings: ${templateWarnings.size}`,
       );
+      if (tuiEnabled) {
+        renderTuiTemplateResult({
+          updateSucceeded: false,
+          validationSucceeded: 0,
+          validationTotal: templateValidationTaskCount,
+          validationFailed: 0,
+          warningCount: templateWarnings.size,
+        });
+      }
       continue;
     }
 
@@ -790,6 +994,16 @@ async function main() {
       logWarningLine(templateSummaryMessage);
     } else {
       logSuccessLine(templateSummaryMessage);
+    }
+
+    if (tuiEnabled) {
+      renderTuiTemplateResult({
+        updateSucceeded: true,
+        validationSucceeded: templateValidationSucceeded,
+        validationTotal: templateValidationTaskCount,
+        validationFailed: templateValidationFailed,
+        warningCount: templateWarnings.size,
+      });
     }
   }
 
@@ -867,12 +1081,18 @@ async function main() {
     logErrorLine(
       `Conclusion: template dependency updates finished with failures. ${summary.updateFailed.length} update(s) failed and ${summary.validationFailed.length} validation task(s) failed. See ${path.basename(logFilePath)} for details.`,
     );
+    if (tuiEnabled) {
+      renderTuiRunSummary({ summary, duration, hasFailure });
+    }
     return 1;
   }
 
   logSuccessLine(
     `Conclusion: dependency updates for ${summary.totalTemplates} template(s) and ${summary.totalValidationTasksExecuted} executed validation task(s) completed successfully.`,
   );
+  if (tuiEnabled) {
+    renderTuiRunSummary({ summary, duration, hasFailure });
+  }
   return 0;
 }
 
@@ -885,6 +1105,13 @@ try {
   logErrorLine(
     `Conclusion: an unhandled error occurred during execution: ${error instanceof Error ? error.stack ?? error.message : String(error)}`,
   );
+  if (tuiEnabled) {
+    renderTuiPanel(
+      'Unhandled error',
+      [color.error(error instanceof Error ? error.message : String(error))],
+      color.error,
+    );
+  }
   exitCode = 1;
 }
 
