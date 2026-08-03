@@ -35,8 +35,8 @@
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
-    "lint": "oxlint",
-    "lint:fix": "oxlint --fix",
+    "lint": "oxlint src test",
+    "lint:fix": "oxlint --fix src test",
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check",
     "typecheck": "tsc --noEmit",
