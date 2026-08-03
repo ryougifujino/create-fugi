@@ -131,7 +131,7 @@ async function customizeDirectory(targetDir: string, templateName: string, proje
       continue
     }
 
-    if (entry.name === 'pnpm-lock.yaml' || SOURCE_FILE_EXTENSIONS.has(path.extname(entry.name))) {
+    if (SOURCE_FILE_EXTENSIONS.has(path.extname(entry.name))) {
       await customizeScopedReferences(entryPath, templateName, projectName)
     }
   }

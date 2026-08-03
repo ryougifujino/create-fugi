@@ -121,11 +121,6 @@ test('runCreateCommand rewrites scoped package references to the project name', 
       path.join(monoTemplateDir, 'README.md'),
       '# mono-electron-solid\n\nThe `mono-electron-solid` workspace.\n',
     );
-    await writeFile(
-      path.join(monoTemplateDir, 'pnpm-lock.yaml'),
-      "importers:\n  apps/desktop:\n    devDependencies:\n      '@mono-electron-solid/api':\n        specifier: workspace:*\n",
-    );
-
     await runCreateCommand({
       cwd,
       promptTemplate: async () => 'mono-electron-solid',
@@ -156,11 +151,6 @@ test('runCreateCommand rewrites scoped package references to the project name', 
       path.join(cwd, 'demo-app', 'apps', 'desktop', 'src', 'client.ts'),
       'utf-8',
     );
-    const pnpmLock = await readFile(
-      path.join(cwd, 'demo-app', 'pnpm-lock.yaml'),
-      'utf-8',
-    );
-
     assert.match(workspacePackageJson, /"name": "demo-app"/);
     assert.match(workspacePackageJson, /@demo-app\/desktop/);
     assert.match(desktopPackageJson, /"name": "@demo-app\/desktop"/);
@@ -168,7 +158,6 @@ test('runCreateCommand rewrites scoped package references to the project name', 
     assert.match(desktopReadme, /@demo-app\/desktop/);
     assert.equal(workspaceReadme, '# demo-app\n\nThe `demo-app` workspace.\n');
     assert.equal(clientTs, "import type { AppType } from '@demo-app/api'\n");
-    assert.match(pnpmLock, /'@demo-app\/api':/);
   } finally {
     await rm(tempRootDir, { recursive: true, force: true });
   }

@@ -29,7 +29,8 @@
   "files": [
     "dist",
     "templates",
-    "gitignores"
+    "gitignores",
+    "!templates/*/pnpm-lock.yaml"
   ],
   "type": "module",
   "main": "dist/index.js",
