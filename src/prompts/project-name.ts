@@ -1,6 +1,6 @@
 import { clearLine, clearScreenDown, cursorTo, emitKeypressEvents, moveCursor } from 'node:readline'
 import { input } from '@inquirer/prompts'
-import { validateProjectName } from '../lib/templates.ts'
+import { validateProjectNameInput } from '../lib/templates.ts'
 
 export const PROJECT_NAME_PLACEHOLDER = 'fugi-project'
 
@@ -171,7 +171,7 @@ async function promptProjectNameWithInquirer(): Promise<string> {
     transformer: (value, { isFinal }) => renderProjectNameInput(value, isFinal),
     validate: (value) => {
       try {
-        validateProjectName(value)
+        validateProjectNameInput(value)
         return true
       } catch (error) {
         if (error instanceof Error) {
@@ -248,7 +248,7 @@ export async function promptProjectName(): Promise<string> {
 
     const submit = (): void => {
       try {
-        const projectName = validateProjectName(getProjectNamePromptValue(state))
+        const projectName = validateProjectNameInput(getProjectNamePromptValue(state))
         finish(projectName)
       } catch (error) {
         state = reduceProjectNamePromptState(state, {

@@ -70,6 +70,74 @@ test('runCreateCommand copies selected template into new project directory', asy
   }
 });
 
+test('runCreateCommand scaffolds into the current directory when "." is given', async () => {
+  const tempRootDir = await mkdtemp(path.join(os.tmpdir(), 'create-fugi-create-'));
+
+  try {
+    const templatesRootDir = path.join(tempRootDir, 'templates');
+    const gitignoresRootDir = path.join(tempRootDir, 'gitignores');
+    const reactTemplateDir = path.join(templatesRootDir, 'react');
+    const cwd = path.join(tempRootDir, 'demo-app');
+
+    await mkdir(reactTemplateDir, { recursive: true });
+    await mkdir(gitignoresRootDir, { recursive: true });
+    await mkdir(path.join(cwd, '.git'), { recursive: true });
+    await writeFile(path.join(gitignoresRootDir, 'react_gitignore'), 'node_modules\n');
+    await writeFile(
+      path.join(reactTemplateDir, 'package.json'),
+      JSON.stringify({ name: 'react' }, null, 2),
+    );
+
+    const logs: string[] = [];
+    await runCreateCommand({
+      cwd,
+      promptTemplate: async () => 'react',
+      promptProjectName: async () => '.',
+      templatesRootDir,
+      gitignoresRootDir,
+      log: (message) => {
+        logs.push(message);
+      },
+    });
+
+    const packageJson = await readFile(path.join(cwd, 'package.json'), 'utf-8');
+    const gitignore = await readFile(path.join(cwd, '.gitignore'), 'utf-8');
+
+    assert.match(packageJson, /"name": "demo-app"/);
+    assert.equal(gitignore, 'node_modules\n');
+    assert.equal(logs.some((message) => message.includes('cd ')), false);
+  } finally {
+    await rm(tempRootDir, { recursive: true, force: true });
+  }
+});
+
+test('runCreateCommand fails when the current directory is not empty', async () => {
+  const tempRootDir = await mkdtemp(path.join(os.tmpdir(), 'create-fugi-create-'));
+
+  try {
+    const templatesRootDir = path.join(tempRootDir, 'templates');
+    const reactTemplateDir = path.join(templatesRootDir, 'react');
+    const cwd = path.join(tempRootDir, 'demo-app');
+
+    await mkdir(reactTemplateDir, { recursive: true });
+    await mkdir(cwd, { recursive: true });
+    await writeFile(path.join(cwd, 'notes.txt'), 'keep me');
+
+    await assert.rejects(
+      runCreateCommand({
+        cwd,
+        promptTemplate: async () => 'react',
+        promptProjectName: async () => '.',
+        templatesRootDir,
+        log: () => {},
+      }),
+      /Current directory is not empty/,
+    );
+  } finally {
+    await rm(tempRootDir, { recursive: true, force: true });
+  }
+});
+
 test('runCreateCommand rewrites scoped package references to the project name', async () => {
   const tempRootDir = await mkdtemp(path.join(os.tmpdir(), 'create-fugi-create-'));
 

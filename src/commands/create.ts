@@ -5,10 +5,11 @@ import {
   applyProjectNameTemplate,
   copyTemplate,
   ensureDirectoryDoesNotExist,
+  ensureDirectoryIsEmpty,
   listTemplates,
+  resolveProjectTarget,
   restoreTemplateGitignore,
   type TemplateEntry,
-  validateProjectName,
 } from '../lib/templates.ts'
 import { promptProjectName } from '../prompts/project-name.ts'
 
@@ -65,14 +66,21 @@ export async function runCreateCommand(dependencies: CreateCommandDependencies =
   }
 
   const rawProjectName = await askProjectName()
-  const projectName = validateProjectName(rawProjectName)
-  const targetDir = path.resolve(cwd, projectName)
+  const { projectName, targetDir, isCurrentDir } = resolveProjectTarget(cwd, rawProjectName)
 
-  await ensureDirectoryDoesNotExist(targetDir)
+  if (isCurrentDir) {
+    await ensureDirectoryIsEmpty(targetDir)
+  } else {
+    await ensureDirectoryDoesNotExist(targetDir)
+  }
+
   await copyTemplate(selectedTemplate.absolutePath, targetDir)
   await restoreTemplateGitignore(targetDir, selectedTemplate.name, gitignoresRootDir)
   await applyProjectNameTemplate(targetDir, selectedTemplate.name, projectName)
 
   log(`Project created at ${targetDir}`)
-  log(`Next steps:\n  cd ${projectName}`)
+
+  if (!isCurrentDir) {
+    log(`Next steps:\n  cd ${projectName}`)
+  }
 }

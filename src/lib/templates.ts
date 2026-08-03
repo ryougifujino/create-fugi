@@ -3,6 +3,8 @@ import path from 'node:path'
 
 const PROJECT_NAME_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 const TEMPLATE_GITIGNORE_SUFFIX = '_gitignore'
+const CURRENT_DIRECTORY_TOKEN = '.'
+const IGNORED_TARGET_DIRECTORY_ENTRIES = new Set(['.git', '.DS_Store'])
 const SOURCE_FILE_EXTENSIONS = new Set(['.ts', '.tsx', '.mts', '.cts', '.js', '.jsx', '.mjs', '.cjs'])
 
 export interface TemplateEntry {
@@ -20,6 +22,55 @@ export async function listTemplates(templatesRootDir: string): Promise<TemplateE
       absolutePath: path.join(templatesRootDir, entry.name),
     }))
     .sort((a, b) => a.name.localeCompare(b.name))
+}
+
+export interface ProjectTarget {
+  projectName: string
+  targetDir: string
+  isCurrentDir: boolean
+}
+
+export function validateProjectNameInput(rawProjectName: string): string {
+  const projectName = rawProjectName.trim()
+
+  if (projectName === CURRENT_DIRECTORY_TOKEN) {
+    return projectName
+  }
+
+  return validateProjectName(rawProjectName)
+}
+
+export function resolveProjectTarget(cwd: string, rawProjectName: string): ProjectTarget {
+  const trimmedProjectName = rawProjectName.trim()
+
+  if (trimmedProjectName === CURRENT_DIRECTORY_TOKEN) {
+    const currentDirName = path.basename(cwd)
+
+    try {
+      validateProjectName(currentDirName)
+    } catch (error) {
+      throw new Error(
+        `Current directory name "${currentDirName}" cannot be used as the project name: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+        { cause: error },
+      )
+    }
+
+    return {
+      projectName: currentDirName,
+      targetDir: cwd,
+      isCurrentDir: true,
+    }
+  }
+
+  const projectName = validateProjectName(trimmedProjectName)
+
+  return {
+    projectName,
+    targetDir: path.resolve(cwd, projectName),
+    isCurrentDir: false,
+  }
 }
 
 export function validateProjectName(rawProjectName: string): string {
@@ -58,6 +109,25 @@ export async function ensureDirectoryDoesNotExist(targetDir: string): Promise<vo
     }
 
     throw error
+  }
+}
+
+export async function ensureDirectoryIsEmpty(targetDir: string): Promise<void> {
+  let entries: string[]
+  try {
+    entries = await readdir(targetDir)
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      return
+    }
+
+    throw error
+  }
+
+  const blockingEntries = entries.filter((entry) => !IGNORED_TARGET_DIRECTORY_ENTRIES.has(entry))
+
+  if (blockingEntries.length > 0) {
+    throw new Error(`Current directory is not empty: ${targetDir}`)
   }
 }
 
