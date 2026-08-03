@@ -145,10 +145,20 @@ export async function ensureDirectoryIsEmpty(targetDir: string): Promise<void> {
   }
 }
 
-export async function copyTemplate(templateDir: string, targetDir: string): Promise<void> {
+export interface CopyTemplateOptions {
+  // Node >= 24.19 rejects an existing destination under errorOnExist, so scaffolding into an
+  // already created directory has to opt out. Emptiness is checked by ensureDirectoryIsEmpty.
+  allowExistingTarget?: boolean
+}
+
+export async function copyTemplate(
+  templateDir: string,
+  targetDir: string,
+  options: CopyTemplateOptions = {},
+): Promise<void> {
   await cp(templateDir, targetDir, {
     recursive: true,
-    errorOnExist: true,
+    errorOnExist: options.allowExistingTarget !== true,
     force: false,
   })
 }

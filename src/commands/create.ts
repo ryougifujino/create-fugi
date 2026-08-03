@@ -82,7 +82,7 @@ export async function runCreateCommand(dependencies: CreateCommandDependencies =
     await ensureDirectoryDoesNotExist(targetDir)
   }
 
-  await copyTemplate(selectedTemplate.absolutePath, targetDir)
+  await copyTemplate(selectedTemplate.absolutePath, targetDir, { allowExistingTarget: isCurrentDir })
   await restoreTemplateGitignore(targetDir, selectedTemplate.name, gitignoresRootDir)
   await applyProjectNameTemplate(targetDir, selectedTemplate.name, projectName)
 
