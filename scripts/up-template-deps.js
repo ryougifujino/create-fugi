@@ -7,7 +7,8 @@ import { fileURLToPath } from 'node:url';
 import chalk from 'chalk';
 import ora from 'ora';
 
-const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+const scriptPath = fileURLToPath(import.meta.url);
+const scriptDir = path.dirname(scriptPath);
 const repoRoot = path.resolve(scriptDir, '..');
 const templatesDir = path.join(repoRoot, 'templates');
 const logFilePath = path.join(repoRoot, 'up-template-deps-report.log');
@@ -37,7 +38,7 @@ const color = {
   muted: chalk.gray,
 };
 
-const logStream = createWriteStream(logFilePath, { flags: 'w' });
+let logStream = null;
 
 function writeConsole(chunk, useStderr = false) {
   if (useStderr) {
@@ -48,6 +49,7 @@ function writeConsole(chunk, useStderr = false) {
 }
 
 function writeLog(chunk) {
+  logStream ??= createWriteStream(logFilePath, { flags: 'w' });
   logStream.write(chunk);
 }
 
@@ -807,6 +809,10 @@ async function runCommand({ cwd, title, args }) {
 }
 
 async function closeLogStream() {
+  if (logStream === null) {
+    return;
+  }
+
   await new Promise((resolve, reject) => {
     logStream.end((error) => {
       if (error) {
@@ -1096,24 +1102,38 @@ async function main() {
   return 0;
 }
 
-let exitCode = 1;
+const isDirectRun =
+  typeof process.argv[1] === 'string' && path.resolve(process.argv[1]) === scriptPath;
 
-try {
-  exitCode = await main();
-} catch (error) {
-  logLine();
-  logErrorLine(
-    `Conclusion: an unhandled error occurred during execution: ${error instanceof Error ? error.stack ?? error.message : String(error)}`,
-  );
-  if (tuiEnabled) {
-    renderTuiPanel(
-      'Unhandled error',
-      [color.error(error instanceof Error ? error.message : String(error))],
-      color.error,
+if (isDirectRun) {
+  let exitCode = 1;
+
+  try {
+    exitCode = await main();
+  } catch (error) {
+    logLine();
+    logErrorLine(
+      `Conclusion: an unhandled error occurred during execution: ${error instanceof Error ? error.stack ?? error.message : String(error)}`,
     );
+    if (tuiEnabled) {
+      renderTuiPanel(
+        'Unhandled error',
+        [color.error(error instanceof Error ? error.message : String(error))],
+        color.error,
+      );
+    }
+    exitCode = 1;
   }
-  exitCode = 1;
+
+  await closeLogStream();
+  process.exitCode = exitCode;
 }
 
-await closeLogStream();
-process.exitCode = exitCode;
+export {
+  deduplicateValidationTargets,
+  extractCommandWarnings,
+  isRecursivePnpmScript,
+  parseStoreDirFromModulesYaml,
+  parseWorkspacePackagePatterns,
+  selectValidationScripts,
+};
