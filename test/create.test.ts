@@ -99,11 +99,31 @@ test('runCreateCommand rewrites scoped package references to the project name', 
     );
     await writeFile(
       path.join(desktopDir, 'package.json'),
-      JSON.stringify({ name: '@mono-electron-solid/desktop' }, null, 2),
+      JSON.stringify(
+        {
+          name: '@mono-electron-solid/desktop',
+          devDependencies: { '@mono-electron-solid/api': 'workspace:*' },
+        },
+        null,
+        2,
+      ),
     );
     await writeFile(
       path.join(desktopDir, 'README.md'),
       'pnpm --filter @mono-electron-solid/desktop dev:renderer',
+    );
+    await mkdir(path.join(desktopDir, 'src'), { recursive: true });
+    await writeFile(
+      path.join(desktopDir, 'src', 'client.ts'),
+      "import type { AppType } from '@mono-electron-solid/api'\n",
+    );
+    await writeFile(
+      path.join(monoTemplateDir, 'README.md'),
+      '# mono-electron-solid\n\nThe `mono-electron-solid` workspace.\n',
+    );
+    await writeFile(
+      path.join(monoTemplateDir, 'pnpm-lock.yaml'),
+      "importers:\n  apps/desktop:\n    devDependencies:\n      '@mono-electron-solid/api':\n        specifier: workspace:*\n",
     );
 
     await runCreateCommand({
@@ -128,10 +148,87 @@ test('runCreateCommand rewrites scoped package references to the project name', 
       'utf-8',
     );
 
+    const workspaceReadme = await readFile(
+      path.join(cwd, 'demo-app', 'README.md'),
+      'utf-8',
+    );
+    const clientTs = await readFile(
+      path.join(cwd, 'demo-app', 'apps', 'desktop', 'src', 'client.ts'),
+      'utf-8',
+    );
+    const pnpmLock = await readFile(
+      path.join(cwd, 'demo-app', 'pnpm-lock.yaml'),
+      'utf-8',
+    );
+
     assert.match(workspacePackageJson, /"name": "demo-app"/);
     assert.match(workspacePackageJson, /@demo-app\/desktop/);
     assert.match(desktopPackageJson, /"name": "@demo-app\/desktop"/);
+    assert.match(desktopPackageJson, /"@demo-app\/api": "workspace:\*"/);
     assert.match(desktopReadme, /@demo-app\/desktop/);
+    assert.equal(workspaceReadme, '# demo-app\n\nThe `demo-app` workspace.\n');
+    assert.equal(clientTs, "import type { AppType } from '@demo-app/api'\n");
+    assert.match(pnpmLock, /'@demo-app\/api':/);
+  } finally {
+    await rm(tempRootDir, { recursive: true, force: true });
+  }
+});
+
+test('runCreateCommand leaves larger tokens containing the template name untouched', async () => {
+  const tempRootDir = await mkdtemp(path.join(os.tmpdir(), 'create-fugi-create-'));
+
+  try {
+    const templatesRootDir = path.join(tempRootDir, 'templates');
+    const gitignoresRootDir = path.join(tempRootDir, 'gitignores');
+    const reactTemplateDir = path.join(templatesRootDir, 'react');
+    const cwd = path.join(tempRootDir, 'workspace');
+    const readmeContent =
+      '[@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react) uses Babel\n'
+      + 'See [react.dev](https://react.dev/learn/react-compiler) and babel-plugin-react-compiler.\n';
+
+    await mkdir(reactTemplateDir, { recursive: true });
+    await mkdir(gitignoresRootDir, { recursive: true });
+    await mkdir(cwd, { recursive: true });
+    await writeFile(path.join(gitignoresRootDir, 'react_gitignore'), 'node_modules\n');
+    await writeFile(
+      path.join(reactTemplateDir, 'package.json'),
+      JSON.stringify(
+        {
+          name: 'react',
+          dependencies: { react: '^19.2.8', 'react-dom': '^19.2.8' },
+        },
+        null,
+        2,
+      ),
+    );
+    await writeFile(path.join(reactTemplateDir, 'README.md'), readmeContent);
+    await writeFile(
+      path.join(reactTemplateDir, 'main.tsx'),
+      "import { StrictMode } from 'react'\nimport { createRoot } from 'react-dom/client'\n",
+    );
+
+    await runCreateCommand({
+      cwd,
+      promptTemplate: async () => 'react',
+      promptProjectName: async () => 'demo-app',
+      templatesRootDir,
+      gitignoresRootDir,
+      log: () => {},
+    });
+
+    const readme = await readFile(path.join(cwd, 'demo-app', 'README.md'), 'utf-8');
+    const mainTsx = await readFile(path.join(cwd, 'demo-app', 'main.tsx'), 'utf-8');
+    const packageJson = JSON.parse(
+      await readFile(path.join(cwd, 'demo-app', 'package.json'), 'utf-8'),
+    ) as { name: string; dependencies: Record<string, string> };
+
+    assert.equal(readme, readmeContent);
+    assert.equal(
+      mainTsx,
+      "import { StrictMode } from 'react'\nimport { createRoot } from 'react-dom/client'\n",
+    );
+    assert.equal(packageJson.name, 'demo-app');
+    assert.deepEqual(packageJson.dependencies, { react: '^19.2.8', 'react-dom': '^19.2.8' });
   } finally {
     await rm(tempRootDir, { recursive: true, force: true });
   }

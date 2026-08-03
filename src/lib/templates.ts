@@ -3,6 +3,7 @@ import path from 'node:path'
 
 const PROJECT_NAME_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 const TEMPLATE_GITIGNORE_SUFFIX = '_gitignore'
+const SOURCE_FILE_EXTENSIONS = new Set(['.ts', '.tsx', '.mts', '.cts', '.js', '.jsx', '.mjs', '.cjs'])
 
 export interface TemplateEntry {
   name: string
@@ -127,8 +128,24 @@ async function customizeDirectory(targetDir: string, templateName: string, proje
 
     if (entry.name.endsWith('.md')) {
       await customizeMarkdown(entryPath, templateName, projectName)
+      continue
+    }
+
+    if (entry.name === 'pnpm-lock.yaml' || SOURCE_FILE_EXTENSIONS.has(path.extname(entry.name))) {
+      await customizeScopedReferences(entryPath, templateName, projectName)
     }
   }
+}
+
+async function customizeScopedReferences(filePath: string, templateName: string, projectName: string): Promise<void> {
+  const content = await readFile(filePath, 'utf-8')
+  const updatedContent = content.replaceAll(`@${templateName}/`, `@${projectName}/`)
+
+  if (updatedContent === content) {
+    return
+  }
+
+  await writeFile(filePath, updatedContent)
 }
 
 async function customizePackageJson(filePath: string, templateName: string, projectName: string): Promise<void> {
@@ -157,7 +174,7 @@ async function customizeHtmlTitle(filePath: string, templateName: string, projec
 
 async function customizeMarkdown(filePath: string, templateName: string, projectName: string): Promise<void> {
   const markdown = await readFile(filePath, 'utf-8')
-  const updatedMarkdown = rewriteTemplateReference(markdown, templateName, projectName)
+  const updatedMarkdown = rewriteMarkdownReferences(markdown, templateName, projectName)
 
   if (updatedMarkdown === markdown) {
     return
@@ -176,8 +193,14 @@ function rewriteJsonValue(value: unknown, templateName: string, projectName: str
   }
 
   if (value !== null && typeof value === 'object') {
+    // Keys are only rewritten in scoped form (e.g. dependency names like "@template/api").
+    // A bare key equal to the template name (e.g. the "react" dependency in the react
+    // template) is a real package name and must stay untouched.
     return Object.fromEntries(
-      Object.entries(value).map(([key, item]) => [key, rewriteJsonValue(item, templateName, projectName)]),
+      Object.entries(value).map(([key, item]) => [
+        key.replaceAll(`@${templateName}/`, `@${projectName}/`),
+        rewriteJsonValue(item, templateName, projectName),
+      ]),
     )
   }
 
@@ -190,6 +213,15 @@ function rewriteTemplateReference(value: string, templateName: string, projectNa
   }
 
   return value.replaceAll(`@${templateName}/`, `@${projectName}/`)
+}
+
+function rewriteMarkdownReferences(value: string, templateName: string, projectName: string): string {
+  const scopedRewritten = value.replaceAll(`@${templateName}/`, `@${projectName}/`)
+  // Bare references like "# mono-hono-react" must not match inside larger tokens
+  // such as "plugin-react", "react.dev", or "@vitejs/plugin-react".
+  const barePattern = new RegExp(`(?<![A-Za-z0-9@/._-])${escapeRegExp(templateName)}(?![A-Za-z0-9/._-])`, 'g')
+
+  return scopedRewritten.replace(barePattern, projectName)
 }
 
 function escapeRegExp(value: string): string {
