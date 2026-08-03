@@ -102,6 +102,8 @@ test('listTemplates returns only directories in lexical order', async () => {
       templates.map((template) => template.name),
       ['react', 'vue'],
     );
+    assert.equal(typeof templates[0]!.description, 'string');
+    assert.equal(templates[1]!.description, undefined);
   } finally {
     await rm(tempRootDir, { recursive: true, force: true });
   }

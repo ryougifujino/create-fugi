@@ -41,6 +41,7 @@ async function promptTemplateName(templates: TemplateEntry[]): Promise<string> {
     choices: templates.map((template) => ({
       name: template.name,
       value: template.name,
+      description: template.description,
     })),
   })
 }

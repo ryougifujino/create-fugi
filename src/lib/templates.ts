@@ -10,6 +10,19 @@ const SOURCE_FILE_EXTENSIONS = new Set(['.ts', '.tsx', '.mts', '.cts', '.js', '.
 export interface TemplateEntry {
   name: string
   absolutePath: string
+  description?: string
+}
+
+// Kept in the CLI on purpose: a description inside a template's package.json
+// would be copied into every scaffolded project.
+const TEMPLATE_DESCRIPTIONS: Record<string, string> = {
+  react: 'Single-package React frontend (Vite)',
+  'mono-node': 'Monorepo with a Node.js app',
+  'mono-hono-react': 'Monorepo with a React frontend and a Hono backend',
+  'mono-electron-react': 'Monorepo with an Electron + React desktop app',
+  'mono-electron-solid': 'Monorepo with an Electron + Solid desktop app',
+  'mono-hono-electron-react': 'Monorepo with an Electron + React desktop app and a Hono backend',
+  'mono-hono-electron-solid': 'Monorepo with an Electron + Solid desktop app and a Hono backend',
 }
 
 export async function listTemplates(templatesRootDir: string): Promise<TemplateEntry[]> {
@@ -20,6 +33,7 @@ export async function listTemplates(templatesRootDir: string): Promise<TemplateE
     .map((entry) => ({
       name: entry.name,
       absolutePath: path.join(templatesRootDir, entry.name),
+      description: TEMPLATE_DESCRIPTIONS[entry.name],
     }))
     .sort((a, b) => a.name.localeCompare(b.name))
 }
