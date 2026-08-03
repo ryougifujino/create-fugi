@@ -29,5 +29,19 @@ Runs only the renderer dev server.
 
 Builds the renderer and Electron bundle for production.
 
+### `pnpm dist`
+
+Builds the app and packages distributable installers with
+[electron-builder](https://www.electron.build/) into `release/`.
+Configuration lives in the `build` field of `package.json` — update
+`appId` (and add icons) before shipping.
+
+Renderer libraries (like `solid-js`) live in `devDependencies` because Vite
+bundles them into `dist/renderer`, so they are not packaged again into the
+app. Only main-process packages that must stay external at runtime (native
+modules, anything listed in `neverBundle` of `tsdown.config.ts`) belong in
+`dependencies` — electron-builder collects those from `node_modules`
+automatically.
+
 Learn more on the [Solid Website](https://solidjs.com) and the
 [Electron Website](https://www.electronjs.org/).

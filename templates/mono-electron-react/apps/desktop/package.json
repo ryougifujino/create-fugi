@@ -9,11 +9,8 @@
     "dev:renderer": "vite",
     "typecheck": "tsc -b --noEmit",
     "build": "tsc -b && vite build && tsdown",
-    "preview": "pnpm build && electron ."
-  },
-  "dependencies": {
-    "react": "catalog:",
-    "react-dom": "catalog:"
+    "preview": "pnpm build && electron .",
+    "dist": "pnpm build && electron-builder"
   },
   "devDependencies": {
     "@babel/core": "catalog:",
@@ -26,9 +23,23 @@
     "@vitejs/plugin-react": "catalog:",
     "babel-plugin-react-compiler": "catalog:",
     "electron": "^43.2.0",
+    "electron-builder": "^26.15.7",
+    "react": "catalog:",
+    "react-dom": "catalog:",
     "tailwindcss": "catalog:",
     "tsdown": "^0.22.14",
     "typescript": "catalog:",
     "vite": "catalog:"
+  },
+  "build": {
+    "appId": "com.example.app",
+    "productName": "mono-electron-react",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/main",
+      "dist/renderer"
+    ]
   }
 }

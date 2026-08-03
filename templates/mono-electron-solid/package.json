@@ -8,6 +8,7 @@
   "author": "",
   "scripts": {
     "dev": "pnpm --filter @mono-electron-solid/desktop dev",
+    "dist": "pnpm --filter @mono-electron-solid/desktop dist",
     "typecheck": "pnpm -r typecheck",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
@@ -50,7 +51,8 @@
   "pnpm": {
     "onlyBuiltDependencies": [
       "lefthook",
-      "electron"
+      "electron",
+      "electron-winstaller"
     ]
   }
 }
