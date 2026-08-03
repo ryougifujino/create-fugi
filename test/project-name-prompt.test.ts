@@ -1,77 +1,90 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { render } from '@inquirer/testing';
 import {
   PROJECT_NAME_PLACEHOLDER,
-  createProjectNamePromptState,
-  getProjectNamePromptValue,
-  reduceProjectNamePromptState,
-  renderProjectNameInput,
+  projectNamePrompt,
+  resolvePlaceholderKeystroke,
 } from '../src/prompts/project-name.ts';
 
-test('renderProjectNameInput shows a dim kebab-case placeholder for empty input', () => {
-  assert.equal(
-    renderProjectNameInput('', false),
-    `\u001B[2m${PROJECT_NAME_PLACEHOLDER}\u001B[0m`,
+test('resolvePlaceholderKeystroke commits inserted prefixes only', () => {
+  assert.deepEqual(
+    resolvePlaceholderKeystroke({ line: `d${PROJECT_NAME_PLACEHOLDER}`, cursor: 1 }, PROJECT_NAME_PLACEHOLDER),
+    { type: 'commit', text: 'd' },
+  );
+  assert.deepEqual(
+    resolvePlaceholderKeystroke({ line: PROJECT_NAME_PLACEHOLDER, cursor: 0 }, PROJECT_NAME_PLACEHOLDER),
+    { type: 'noop' },
+  );
+  assert.deepEqual(
+    resolvePlaceholderKeystroke({ line: PROJECT_NAME_PLACEHOLDER, cursor: 3 }, PROJECT_NAME_PLACEHOLDER),
+    { type: 'restore' },
+  );
+  assert.deepEqual(
+    resolvePlaceholderKeystroke({ line: PROJECT_NAME_PLACEHOLDER.slice(1), cursor: 0 }, PROJECT_NAME_PLACEHOLDER),
+    { type: 'restore' },
   );
 });
 
-test('renderProjectNameInput preserves entered values and clears on final empty submit', () => {
-  assert.equal(renderProjectNameInput('demo-app', false), 'demo-app');
-  assert.equal(renderProjectNameInput('', true), '');
+test('project name prompt shows the placeholder until input replaces it', async () => {
+  const { answer, events, getScreen } = await render(projectNamePrompt, { message: 'Project name' });
+
+  assert.equal(getScreen(), `? Project name ${PROJECT_NAME_PLACEHOLDER}`);
+
+  events.type('demo-app');
+  assert.equal(getScreen(), '? Project name demo-app');
+
+  events.keypress('enter');
+  assert.equal(await answer, 'demo-app');
 });
 
-test('project name prompt state starts with a visible placeholder and empty submitted value', () => {
-  const state = createProjectNamePromptState();
+test('project name prompt restores the placeholder after deleting all input', async () => {
+  const { answer, events, getScreen } = await render(projectNamePrompt, { message: 'Project name' });
 
-  assert.equal(state.value, PROJECT_NAME_PLACEHOLDER);
-  assert.equal(state.cursor, 0);
-  assert.equal(state.showPlaceholder, true);
-  assert.equal(getProjectNamePromptValue(state), '');
+  events.type('hi');
+  events.keypress('backspace');
+  events.keypress('backspace');
+  assert.equal(getScreen(), `? Project name ${PROJECT_NAME_PLACEHOLDER}`);
+
+  events.type('demo-app');
+  events.keypress('enter');
+  assert.equal(await answer, 'demo-app');
 });
 
-test('project name prompt replaces the placeholder on first input', () => {
-  const state = reduceProjectNamePromptState(createProjectNamePromptState(), {
-    type: 'input',
-    text: 'demo-app',
-  });
+test('project name prompt rejects an empty submit and recovers', async () => {
+  const { answer, events, getScreen } = await render(projectNamePrompt, { message: 'Project name' });
 
-  assert.equal(state.value, 'demo-app');
-  assert.equal(state.cursor, 'demo-app'.length);
-  assert.equal(state.showPlaceholder, false);
-  assert.equal(getProjectNamePromptValue(state), 'demo-app');
+  events.keypress('enter');
+  assert.equal(getScreen(), `? Project name ${PROJECT_NAME_PLACEHOLDER}\n> Project name is required.`);
+
+  events.type('demo-app');
+  assert.equal(getScreen(), '? Project name demo-app');
+
+  events.keypress('enter');
+  assert.equal(await answer, 'demo-app');
 });
 
-test('project name prompt edits typed values around the cursor', () => {
-  const afterInput = reduceProjectNamePromptState(createProjectNamePromptState(), {
-    type: 'input',
-    text: 'demoapp',
-  });
-  const afterLeft = reduceProjectNamePromptState(afterInput, { type: 'left' });
-  const afterInsert = reduceProjectNamePromptState(afterLeft, {
-    type: 'input',
-    text: '-',
-  });
-  const afterBackspace = reduceProjectNamePromptState(afterInsert, {
-    type: 'backspace',
-  });
+test('project name prompt keeps invalid input for editing after a failed submit', async () => {
+  const { answer, events, getScreen } = await render(projectNamePrompt, { message: 'Project name' });
 
-  assert.equal(afterInsert.value, 'demoap-p');
-  assert.equal(afterInsert.cursor, 7);
-  assert.equal(afterBackspace.value, 'demoapp');
-  assert.equal(afterBackspace.cursor, 6);
+  events.type('Demo');
+  events.keypress('enter');
+  assert.match(getScreen(), /kebab-case/);
+  assert.match(getScreen(), /Demo/);
+
+  events.keypress('backspace');
+  events.keypress('backspace');
+  events.keypress('backspace');
+  events.keypress('backspace');
+  events.type('demo-app');
+  events.keypress('enter');
+  assert.equal(await answer, 'demo-app');
 });
 
-test('project name prompt shows the placeholder again after deleting all content', () => {
-  const afterInput = reduceProjectNamePromptState(createProjectNamePromptState(), {
-    type: 'input',
-    text: 'a',
-  });
-  const afterBackspace = reduceProjectNamePromptState(afterInput, {
-    type: 'backspace',
-  });
+test('project name prompt accepts "." for the current directory', async () => {
+  const { answer, events } = await render(projectNamePrompt, { message: 'Project name' });
 
-  assert.equal(afterBackspace.value, PROJECT_NAME_PLACEHOLDER);
-  assert.equal(afterBackspace.cursor, 0);
-  assert.equal(afterBackspace.showPlaceholder, true);
-  assert.equal(getProjectNamePromptValue(afterBackspace), '');
+  events.type('.');
+  events.keypress('enter');
+  assert.equal(await answer, '.');
 });
