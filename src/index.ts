@@ -24,6 +24,12 @@ export async function runCli(argv: string[], dependencies: CliDependencies = {})
   return 1
 }
 
+export const SIGINT_EXIT_CODE = 130
+
+export function isExitPromptError(error: unknown): boolean {
+  return error instanceof Error && error.name === 'ExitPromptError'
+}
+
 function formatError(error: unknown): string {
   if (error instanceof Error) {
     return error.message
@@ -37,6 +43,11 @@ async function main(): Promise<void> {
     const exitCode = await runCli(process.argv.slice(2))
     process.exitCode = exitCode
   } catch (error) {
+    if (isExitPromptError(error)) {
+      process.exitCode = SIGINT_EXIT_CODE
+      return
+    }
+
     console.error(formatError(error))
     process.exitCode = 1
   }

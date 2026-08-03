@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { HELP_TEXT, runCli } from '../src/index.ts';
+import { HELP_TEXT, isExitPromptError, runCli } from '../src/index.ts';
 
 test('runCli delegates create command', async () => {
   let called = false;
@@ -24,6 +24,15 @@ test('runCli delegates create command when invoked without arguments', async () 
 
   assert.equal(exitCode, 0);
   assert.equal(called, true);
+});
+
+test('isExitPromptError recognizes prompt cancellation errors only', () => {
+  const promptError = new Error('User force closed the prompt with SIGINT');
+  promptError.name = 'ExitPromptError';
+
+  assert.equal(isExitPromptError(promptError), true);
+  assert.equal(isExitPromptError(new Error('boom')), false);
+  assert.equal(isExitPromptError('ExitPromptError'), false);
 });
 
 test('runCli prints help for unsupported command', async () => {
