@@ -1,3 +1,4 @@
+import { stat } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { select } from '@inquirer/prompts'
@@ -80,7 +81,25 @@ export async function runCreateCommand(dependencies: CreateCommandDependencies =
 
   log(`Project created at ${targetDir}`)
 
+  const nextSteps: string[] = []
+
   if (!isCurrentDir) {
-    log(`Next steps:\n  cd ${projectName}`)
+    nextSteps.push(`cd ${projectName}`)
+  }
+
+  if (!(await isGitRepository(targetDir))) {
+    nextSteps.push('git init')
+  }
+
+  nextSteps.push('pnpm install', 'pnpm dev')
+  log(`Next steps:\n${nextSteps.map((step) => `  ${step}`).join('\n')}`)
+}
+
+async function isGitRepository(targetDir: string): Promise<boolean> {
+  try {
+    const gitStats = await stat(path.join(targetDir, '.git'))
+    return gitStats.isDirectory()
+  } catch {
+    return false
   }
 }

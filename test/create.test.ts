@@ -30,13 +30,16 @@ test('runCreateCommand copies selected template into new project directory', asy
       '<!doctype html><html><head><title>react</title></head></html>',
     );
 
+    const logs: string[] = [];
     await runCreateCommand({
       cwd,
       promptTemplate: async () => 'react',
       promptProjectName: async () => 'demo-app',
       templatesRootDir,
       gitignoresRootDir,
-      log: () => {},
+      log: (message) => {
+        logs.push(message);
+      },
     });
 
     const readme = await readFile(
@@ -65,6 +68,10 @@ test('runCreateCommand copies selected template into new project directory', asy
     assert.match(packageJson, /"name": "demo-app"/);
     assert.match(indexHtml, /<title>demo-app<\/title>/);
     assert.equal(gitignore, 'node_modules\n');
+    assert.equal(
+      logs.at(-1),
+      'Next steps:\n  cd demo-app\n  git init\n  pnpm install\n  pnpm dev',
+    );
   } finally {
     await rm(tempRootDir, { recursive: true, force: true });
   }
@@ -105,7 +112,7 @@ test('runCreateCommand scaffolds into the current directory when "." is given', 
 
     assert.match(packageJson, /"name": "demo-app"/);
     assert.equal(gitignore, 'node_modules\n');
-    assert.equal(logs.some((message) => message.includes('cd ')), false);
+    assert.equal(logs.at(-1), 'Next steps:\n  pnpm install\n  pnpm dev');
   } finally {
     await rm(tempRootDir, { recursive: true, force: true });
   }
