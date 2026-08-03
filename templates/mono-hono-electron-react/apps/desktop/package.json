@@ -1,0 +1,47 @@
+{
+  "name": "@mono-hono-electron-react/desktop",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/main/main.mjs",
+  "scripts": {
+    "dev": "node ./scripts/dev/index.js",
+    "dev:renderer": "vite",
+    "typecheck": "tsc -b --noEmit",
+    "build": "tsc -b && vite build && tsdown",
+    "preview": "pnpm build && electron .",
+    "dist": "pnpm build && electron-builder"
+  },
+  "devDependencies": {
+    "@babel/core": "catalog:",
+    "@mono-hono-electron-react/api": "workspace:*",
+    "@rolldown/plugin-babel": "catalog:",
+    "@tailwindcss/vite": "catalog:",
+    "@types/babel__core": "catalog:",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
+    "babel-plugin-react-compiler": "catalog:",
+    "electron": "^43.2.0",
+    "electron-builder": "^26.15.7",
+    "hono": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "tailwindcss": "catalog:",
+    "tsdown": "^0.22.14",
+    "typescript": "catalog:",
+    "vite": "catalog:"
+  },
+  "build": {
+    "appId": "com.example.app",
+    "productName": "mono-hono-electron-react",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/main",
+      "dist/renderer"
+    ]
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "name": "@mono-hono-electron-solid/desktop",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/main/main.mjs",
+  "scripts": {
+    "dev": "node ./scripts/dev/index.js",
+    "dev:renderer": "vite",
+    "typecheck": "tsc -b --noEmit",
+    "build": "tsc -b && vite build && tsdown",
+    "preview": "pnpm build && electron .",
+    "dist": "pnpm build && electron-builder"
+  },
+  "devDependencies": {
+    "@mono-hono-electron-solid/api": "workspace:*",
+    "@tailwindcss/vite": "catalog:",
+    "@types/node": "catalog:",
+    "electron": "^43.2.0",
+    "electron-builder": "^26.15.7",
+    "hono": "catalog:",
+    "solid-js": "catalog:",
+    "tailwindcss": "catalog:",
+    "tsdown": "^0.22.14",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vite-plugin-solid": "catalog:"
+  },
+  "build": {
+    "appId": "com.example.app",
+    "productName": "mono-hono-electron-solid",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/main",
+      "dist/renderer"
+    ]
+  }
+}

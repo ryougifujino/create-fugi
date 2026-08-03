@@ -1,0 +1,15 @@
+packages:
+  - apps/*
+  - packages/*
+
+catalog:
+  '@hono/zod-validator': ^0.9.0
+  '@tailwindcss/vite': ^4.3.3
+  '@types/node': ^24.12.0
+  hono: ^4.12.32
+  solid-js: ^1.9.14
+  tailwindcss: ^4.3.3
+  typescript: ~7.0.2
+  vite: ^8.1.5
+  vite-plugin-solid: ^2.11.13
+  zod: ^4.4.3
