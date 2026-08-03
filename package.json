@@ -21,7 +21,7 @@
   "author": "ryougifujino",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com:ryougifujino/create-fugi.git"
+    "url": "git+https://github.com/ryougifujino/create-fugi.git"
   },
   "bin": {
     "create-fugi": "dist/index.js"
