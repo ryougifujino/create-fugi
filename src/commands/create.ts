@@ -15,6 +15,8 @@ import {
 import { promptProjectName } from '../prompts/project-name.ts'
 
 export interface CreateCommandDependencies {
+  projectName?: string
+  templateName?: string
   cwd?: string
   log?: (message: string) => void
   promptTemplate?: (templates: TemplateEntry[]) => Promise<string>
@@ -59,14 +61,18 @@ export async function runCreateCommand(dependencies: CreateCommandDependencies =
     throw new Error(`No templates found in templates directory: ${templatesRootDir}`)
   }
 
-  const selectedTemplateName = await selectTemplate(templates)
+  const selectedTemplateName = dependencies.templateName ?? (await selectTemplate(templates))
   const selectedTemplate = templates.find((template) => template.name === selectedTemplateName)
 
   if (selectedTemplate === undefined) {
-    throw new Error(`Template "${selectedTemplateName}" is not available.`)
+    throw new Error(
+      `Template "${selectedTemplateName}" is not available. Available templates: ${templates
+        .map((template) => template.name)
+        .join(', ')}`,
+    )
   }
 
-  const rawProjectName = await askProjectName()
+  const rawProjectName = dependencies.projectName ?? (await askProjectName())
   const { projectName, targetDir, isCurrentDir } = resolveProjectTarget(cwd, rawProjectName)
 
   if (isCurrentDir) {

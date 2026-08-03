@@ -298,6 +298,72 @@ test('runCreateCommand leaves larger tokens containing the template name untouch
   }
 });
 
+test('runCreateCommand skips prompts when project name and template are provided', async () => {
+  const tempRootDir = await mkdtemp(path.join(os.tmpdir(), 'create-fugi-create-'));
+
+  try {
+    const templatesRootDir = path.join(tempRootDir, 'templates');
+    const gitignoresRootDir = path.join(tempRootDir, 'gitignores');
+    const reactTemplateDir = path.join(templatesRootDir, 'react');
+    const cwd = path.join(tempRootDir, 'workspace');
+
+    await mkdir(reactTemplateDir, { recursive: true });
+    await mkdir(gitignoresRootDir, { recursive: true });
+    await mkdir(cwd, { recursive: true });
+    await writeFile(path.join(gitignoresRootDir, 'react_gitignore'), 'node_modules\n');
+    await writeFile(
+      path.join(reactTemplateDir, 'package.json'),
+      JSON.stringify({ name: 'react' }, null, 2),
+    );
+
+    await runCreateCommand({
+      projectName: 'demo-app',
+      templateName: 'react',
+      cwd,
+      promptTemplate: async () => {
+        throw new Error('template prompt should not run');
+      },
+      promptProjectName: async () => {
+        throw new Error('project name prompt should not run');
+      },
+      templatesRootDir,
+      gitignoresRootDir,
+      log: () => {},
+    });
+
+    const packageJson = await readFile(path.join(cwd, 'demo-app', 'package.json'), 'utf-8');
+    assert.match(packageJson, /"name": "demo-app"/);
+  } finally {
+    await rm(tempRootDir, { recursive: true, force: true });
+  }
+});
+
+test('runCreateCommand lists available templates when the requested one is missing', async () => {
+  const tempRootDir = await mkdtemp(path.join(os.tmpdir(), 'create-fugi-create-'));
+
+  try {
+    const templatesRootDir = path.join(tempRootDir, 'templates');
+    const cwd = path.join(tempRootDir, 'workspace');
+
+    await mkdir(path.join(templatesRootDir, 'react'), { recursive: true });
+    await mkdir(path.join(templatesRootDir, 'mono-node'), { recursive: true });
+    await mkdir(cwd, { recursive: true });
+
+    await assert.rejects(
+      runCreateCommand({
+        projectName: 'demo-app',
+        templateName: 'vue',
+        cwd,
+        templatesRootDir,
+        log: () => {},
+      }),
+      /Template "vue" is not available\. Available templates: mono-node, react/,
+    );
+  } finally {
+    await rm(tempRootDir, { recursive: true, force: true });
+  }
+});
+
 test('runCreateCommand fails when generated template gitignore is missing', async () => {
   const tempRootDir = await mkdtemp(path.join(os.tmpdir(), 'create-fugi-create-'));
 
