@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 
+import { realpathSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
-import { fileURLToPath, pathToFileURL } from 'node:url'
+import { fileURLToPath } from 'node:url'
 import { parseArgs } from 'node:util'
 import { runCreateCommand } from './commands/create.ts'
 
@@ -105,7 +106,18 @@ async function main(): Promise<void> {
   }
 }
 
-const entry = process.argv[1]
-if (entry !== undefined && import.meta.url === pathToFileURL(entry).href) {
+export function isMainModule(moduleUrl: string, entry: string | undefined): boolean {
+  if (entry === undefined) {
+    return false
+  }
+
+  try {
+    return fileURLToPath(moduleUrl) === realpathSync(entry)
+  } catch {
+    return false
+  }
+}
+
+if (isMainModule(import.meta.url, process.argv[1])) {
   void main()
 }

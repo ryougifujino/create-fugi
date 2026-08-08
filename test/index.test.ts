@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
+import { mkdtemp, rm, symlink } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import test from 'node:test';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import type { CreateCliOptions } from '../src/index.ts';
-import { HELP_TEXT, isExitPromptError, runCli } from '../src/index.ts';
+import { HELP_TEXT, isExitPromptError, isMainModule, runCli } from '../src/index.ts';
 
 test('runCli delegates create command', async () => {
   let called = false;
@@ -107,4 +111,15 @@ test('isExitPromptError recognizes prompt cancellation errors only', () => {
   assert.equal(isExitPromptError(promptError), true);
   assert.equal(isExitPromptError(new Error('boom')), false);
   assert.equal(isExitPromptError('ExitPromptError'), false);
+});
+
+test('isMainModule recognizes an entry path reached through a package bin symlink', async (t) => {
+  const temporaryDirectory = await mkdtemp(path.join(os.tmpdir(), 'create-fugi-entry-'));
+  t.after(async () => rm(temporaryDirectory, { recursive: true, force: true }));
+
+  const modulePath = fileURLToPath(new URL('../src/index.ts', import.meta.url));
+  const binPath = path.join(temporaryDirectory, 'create-fugi');
+  await symlink(modulePath, binPath);
+
+  assert.equal(isMainModule(pathToFileURL(modulePath).href, binPath), true);
 });
