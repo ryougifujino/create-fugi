@@ -40,6 +40,10 @@
   padding: 2em;
 }
 
+.card p {
+  margin-top: 1em;
+}
+
 .read-the-docs {
   color: #888;
 }
