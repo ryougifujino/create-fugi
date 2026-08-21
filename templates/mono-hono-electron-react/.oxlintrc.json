@@ -18,7 +18,6 @@
     "prefer-spread": "error",
     "preserve-caught-error": "error",
     "react/only-export-components": ["error", { "allowConstantExport": true }],
-    "react/react-compiler": "error",
     "react/rules-of-hooks": "error",
     "typescript/ban-ts-comment": "error",
     "typescript/no-empty-object-type": "error",

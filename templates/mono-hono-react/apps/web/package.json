@@ -16,15 +16,12 @@
     "react-dom": "catalog:"
   },
   "devDependencies": {
-    "@babel/core": "^8.0.1",
-    "@rolldown/plugin-babel": "^0.2.3",
     "@tailwindcss/vite": "^4.3.3",
-    "@types/babel__core": "^7.20.5",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
-    "@vitejs/plugin-react": "^6.0.4",
-    "babel-plugin-react-compiler": "^1.0.0",
+    "@vitejs/plugin-react": "^6.1.0",
+    "oxc-transform-react": "^0.145.0",
     "tailwindcss": "^4.3.3",
     "typescript": "catalog:",
     "vite": "catalog:"

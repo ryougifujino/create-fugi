@@ -10,12 +10,12 @@
     "start": "node dist/index.js"
   },
   "dependencies": {
-    "@hono/node-server": "^2.0.11",
+    "@hono/node-server": "^2.1.1",
     "@mono-hono-react/api": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "catalog:",
-    "tsx": "^4.23.1",
+    "tsx": "^4.23.12",
     "typescript": "catalog:"
   }
 }

@@ -22,9 +22,9 @@ export function useHelloGreeting() {
     } catch (requestError) {
       setResult(null)
       setError(requestError instanceof Error ? requestError.message : 'Request failed.')
-    } finally {
-      setIsLoading(false)
     }
+
+    setIsLoading(false)
   }
 
   return {
