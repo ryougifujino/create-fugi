@@ -1,4 +1,7 @@
 import assert from 'node:assert/strict';
+import { access, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import test from 'node:test';
 import {
   deduplicateValidationTargets,
@@ -6,8 +9,21 @@ import {
   isRecursivePnpmScript,
   parseStoreDirFromModulesYaml,
   parseWorkspacePackagePatterns,
+  removeTemplateLockfile,
   selectValidationScripts,
 } from '../scripts/up-template-deps.js';
+
+test('removeTemplateLockfile removes a lockfile and tolerates an absent one', async (context) => {
+  const templateDir = await mkdtemp(path.join(os.tmpdir(), 'create-fugi-template-'));
+  const lockfilePath = path.join(templateDir, 'pnpm-lock.yaml');
+  context.after(() => rm(templateDir, { force: true, recursive: true }));
+
+  await writeFile(lockfilePath, 'lockfileVersion: 9.0\n');
+  await removeTemplateLockfile(templateDir);
+
+  await assert.rejects(access(lockfilePath), { code: 'ENOENT' });
+  await removeTemplateLockfile(templateDir);
+});
 
 test('parseWorkspacePackagePatterns reads patterns from the packages section only', () => {
   const workspaceContent = [

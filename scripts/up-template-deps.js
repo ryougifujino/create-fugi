@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process';
 import { createWriteStream } from 'node:fs';
-import { glob, readdir, readFile } from 'node:fs/promises';
+import { glob, readdir, readFile, rm } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
@@ -282,6 +282,10 @@ async function listTemplateDirs() {
     .filter((entry) => entry.isDirectory())
     .map((entry) => path.join(templatesDir, entry.name))
     .sort((left, right) => left.localeCompare(right));
+}
+
+async function removeTemplateLockfile(templateDir) {
+  await rm(path.join(templateDir, 'pnpm-lock.yaml'), { force: true });
 }
 
 function parseWorkspacePackagePatterns(workspaceContent) {
@@ -918,6 +922,9 @@ async function main() {
       });
     }
 
+    await removeTemplateLockfile(templateDir);
+    logMutedLine('dependency snapshot: removed pnpm-lock.yaml if present');
+
     const updateResult = await runCommand({
       cwd: templateDir,
       title: `[update] ${templateName}`,
@@ -1135,5 +1142,6 @@ export {
   isRecursivePnpmScript,
   parseStoreDirFromModulesYaml,
   parseWorkspacePackagePatterns,
+  removeTemplateLockfile,
   selectValidationScripts,
 };
