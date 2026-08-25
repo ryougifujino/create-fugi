@@ -1,4 +1,13 @@
-import { createPrompt, isEnterKey, makeTheme, useEffect, useKeypress, usePrefix, useState } from '@inquirer/core'
+import {
+  createPrompt,
+  isBackspaceKey,
+  isEnterKey,
+  makeTheme,
+  useEffect,
+  useKeypress,
+  usePrefix,
+  useState,
+} from '@inquirer/core'
 import { validateProjectNameInput } from '../lib/templates.ts'
 
 export const PROJECT_NAME_PLACEHOLDER = 'fugi-project'
@@ -9,6 +18,12 @@ const ANSI_RESET = '\u001B[0m'
 interface ReadlineBuffer {
   line: string
   cursor: number
+}
+
+interface Keypress {
+  sequence?: string
+  ctrl?: boolean
+  meta?: boolean
 }
 
 export type PlaceholderKeystroke = { type: 'commit'; text: string } | { type: 'restore' } | { type: 'noop' }
@@ -37,6 +52,25 @@ function asReadlineBuffer(rl: { line: string }): ReadlineBuffer {
 function setReadlineBuffer(rl: ReadlineBuffer, line: string, cursor: number): void {
   rl.line = line
   rl.cursor = cursor
+}
+
+function getPrintableKeypress(key: Keypress): string | undefined {
+  if (key.ctrl === true || key.meta === true || key.sequence === undefined) {
+    return undefined
+  }
+
+  const characters = Array.from(key.sequence)
+  if (
+    characters.length === 0 ||
+    characters.some((character) => {
+      const codePoint = character.codePointAt(0)
+      return codePoint === undefined || codePoint < 0x20 || codePoint === 0x7f
+    })
+  ) {
+    return undefined
+  }
+
+  return key.sequence
 }
 
 export const projectNamePrompt = createPrompt<string, { message: string }>((config, done) => {
@@ -72,7 +106,7 @@ export const projectNamePrompt = createPrompt<string, { message: string }>((conf
         if (showPlaceholder) {
           setReadlineBuffer(buffer, PROJECT_NAME_PLACEHOLDER, 0)
         } else {
-          setReadlineBuffer(buffer, value, value.length)
+          rl.write(value)
         }
         setErrorMessage(error instanceof Error ? error.message : 'Invalid project name.')
       }
@@ -82,6 +116,14 @@ export const projectNamePrompt = createPrompt<string, { message: string }>((conf
     setErrorMessage(undefined)
 
     if (showPlaceholder) {
+      const typedText = getPrintableKeypress(key)
+      if (typedText !== undefined) {
+        setReadlineBuffer(buffer, typedText, typedText.length)
+        setShowPlaceholder(false)
+        setValue(typedText)
+        return
+      }
+
       const keystroke = resolvePlaceholderKeystroke(buffer, PROJECT_NAME_PLACEHOLDER)
 
       if (keystroke.type === 'commit') {
@@ -94,14 +136,20 @@ export const projectNamePrompt = createPrompt<string, { message: string }>((conf
       return
     }
 
-    if (buffer.line.length === 0) {
+    const nextValue =
+      isBackspaceKey(key) && buffer.line === value && buffer.cursor === value.length ? value.slice(0, -1) : buffer.line
+
+    if (nextValue.length === 0) {
       setReadlineBuffer(buffer, PROJECT_NAME_PLACEHOLDER, 0)
       setShowPlaceholder(true)
       setValue('')
       return
     }
 
-    setValue(buffer.line)
+    if (nextValue !== buffer.line) {
+      setReadlineBuffer(buffer, nextValue, nextValue.length)
+    }
+    setValue(nextValue)
   })
 
   const message = theme.style.message(config.message, status)
