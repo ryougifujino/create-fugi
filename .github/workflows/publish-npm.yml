@@ -87,7 +87,7 @@ jobs:
         shell: bash
         run: |
           shopt -s nullglob
-          packages=(release-package/*.tgz)
+          packages=(./release-package/*.tgz)
           if (( ${#packages[@]} != 1 )); then
             echo "Expected one release package, found ${#packages[@]}."
             exit 1
