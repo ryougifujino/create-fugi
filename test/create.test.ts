@@ -31,12 +31,19 @@ test('runCreateCommand copies selected template into new project directory', asy
     );
 
     const logs: string[] = [];
+    const gitCommands: Array<{ args: string[]; cwd?: string }> = [];
     await runCreateCommand({
       cwd,
       promptTemplate: async () => 'react',
       promptProjectName: async () => 'demo-app',
       templatesRootDir,
       gitignoresRootDir,
+      runGitCommand: async (args, options) => {
+        gitCommands.push({ args, cwd: options?.cwd });
+        if (args[0] === 'init') {
+          await mkdir(path.join(options!.cwd!, '.git'));
+        }
+      },
       log: (message) => {
         logs.push(message);
       },
@@ -68,9 +75,13 @@ test('runCreateCommand copies selected template into new project directory', asy
     assert.match(packageJson, /"name": "demo-app"/);
     assert.match(indexHtml, /<title>demo-app<\/title>/);
     assert.equal(gitignore, 'node_modules\n');
+    assert.deepEqual(gitCommands, [
+      { args: ['--version'], cwd: undefined },
+      { args: ['init'], cwd: path.join(cwd, 'demo-app') },
+    ]);
     assert.equal(
       logs.at(-1),
-      'Next steps:\n  cd demo-app\n  git init\n  pnpm install\n  pnpm dev',
+      'Next steps:\n  cd demo-app\n  pnpm install\n  pnpm dev',
     );
   } finally {
     await rm(tempRootDir, { recursive: true, force: true });
@@ -102,6 +113,9 @@ test('runCreateCommand scaffolds into the current directory when "." is given', 
       promptProjectName: async () => '.',
       templatesRootDir,
       gitignoresRootDir,
+      runGitCommand: async () => {
+        throw new Error('git should not run for an existing repository');
+      },
       log: (message) => {
         logs.push(message);
       },
@@ -113,6 +127,51 @@ test('runCreateCommand scaffolds into the current directory when "." is given', 
     assert.match(packageJson, /"name": "demo-app"/);
     assert.equal(gitignore, 'node_modules\n');
     assert.equal(logs.at(-1), 'Next steps:\n  pnpm install\n  pnpm dev');
+  } finally {
+    await rm(tempRootDir, { recursive: true, force: true });
+  }
+});
+
+test('runCreateCommand skips git init when git is unavailable', async () => {
+  const tempRootDir = await mkdtemp(path.join(os.tmpdir(), 'create-fugi-create-'));
+
+  try {
+    const templatesRootDir = path.join(tempRootDir, 'templates');
+    const gitignoresRootDir = path.join(tempRootDir, 'gitignores');
+    const reactTemplateDir = path.join(templatesRootDir, 'react');
+    const cwd = path.join(tempRootDir, 'workspace');
+
+    await mkdir(reactTemplateDir, { recursive: true });
+    await mkdir(gitignoresRootDir, { recursive: true });
+    await mkdir(cwd, { recursive: true });
+    await writeFile(path.join(gitignoresRootDir, 'react_gitignore'), 'node_modules\n');
+    await writeFile(
+      path.join(reactTemplateDir, 'package.json'),
+      JSON.stringify({ name: 'react' }, null, 2),
+    );
+
+    const logs: string[] = [];
+    const gitCommands: string[][] = [];
+    await runCreateCommand({
+      projectName: 'demo-app',
+      templateName: 'react',
+      cwd,
+      templatesRootDir,
+      gitignoresRootDir,
+      runGitCommand: async (args) => {
+        gitCommands.push(args);
+        throw new Error('git is unavailable');
+      },
+      log: (message) => {
+        logs.push(message);
+      },
+    });
+
+    assert.deepEqual(gitCommands, [['--version']]);
+    assert.equal(
+      logs.at(-1),
+      'Next steps:\n  cd demo-app\n  git init\n  pnpm install\n  pnpm dev',
+    );
   } finally {
     await rm(tempRootDir, { recursive: true, force: true });
   }

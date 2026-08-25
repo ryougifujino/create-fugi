@@ -1,5 +1,7 @@
+import { execFile } from 'node:child_process'
 import { stat } from 'node:fs/promises'
 import path from 'node:path'
+import { promisify } from 'node:util'
 import { fileURLToPath } from 'node:url'
 import { select } from '@inquirer/prompts'
 import {
@@ -14,6 +16,10 @@ import {
 } from '../lib/templates.ts'
 import { promptProjectName } from '../prompts/project-name.ts'
 
+const execFileAsync = promisify(execFile)
+
+type RunGitCommand = (args: string[], options?: { cwd?: string }) => Promise<void>
+
 export interface CreateCommandDependencies {
   projectName?: string
   templateName?: string
@@ -23,6 +29,11 @@ export interface CreateCommandDependencies {
   promptProjectName?: () => Promise<string>
   templatesRootDir?: string
   gitignoresRootDir?: string
+  runGitCommand?: RunGitCommand
+}
+
+const runGitCommand: RunGitCommand = async (args, options) => {
+  await execFileAsync('git', args, options)
 }
 
 function resolveBundledTemplatesRootDir(): string {
@@ -86,6 +97,10 @@ export async function runCreateCommand(dependencies: CreateCommandDependencies =
   await restoreTemplateGitignore(targetDir, selectedTemplate.name, gitignoresRootDir)
   await applyProjectNameTemplate(targetDir, selectedTemplate.name, projectName)
 
+  const hasGitRepository = await isGitRepository(targetDir)
+  const gitInitialized =
+    hasGitRepository || (await initializeGitRepository(targetDir, dependencies.runGitCommand ?? runGitCommand))
+
   log(`Project created at ${targetDir}`)
 
   const nextSteps: string[] = []
@@ -94,12 +109,23 @@ export async function runCreateCommand(dependencies: CreateCommandDependencies =
     nextSteps.push(`cd ${projectName}`)
   }
 
-  if (!(await isGitRepository(targetDir))) {
+  if (!gitInitialized) {
     nextSteps.push('git init')
   }
 
   nextSteps.push('pnpm install', 'pnpm dev')
   log(`Next steps:\n${nextSteps.map((step) => `  ${step}`).join('\n')}`)
+}
+
+async function initializeGitRepository(targetDir: string, runGit: RunGitCommand): Promise<boolean> {
+  try {
+    await runGit(['--version'])
+  } catch {
+    return false
+  }
+
+  await runGit(['init'], { cwd: targetDir })
+  return true
 }
 
 async function isGitRepository(targetDir: string): Promise<boolean> {
