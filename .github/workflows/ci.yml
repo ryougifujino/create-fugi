@@ -7,12 +7,14 @@ on:
   pull_request:
 
 concurrency:
-  group: "ci-${{ github.workflow }}-${{ github.ref }}"
-  cancel-in-progress: true
+  group: "ci-${{ github.workflow }}-${{ github.ref }}-${{ startsWith(github.event.head_commit.message, 'chore: release v') && github.sha || 'default' }}"
+  cancel-in-progress: "${{ !startsWith(github.event.head_commit.message, 'chore: release v') }}"
 
 jobs:
   test:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
     steps:
       - name: Check out repository
@@ -44,3 +46,25 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+      - name: Pack release
+        if: "${{ github.event_name == 'push' && startsWith(github.event.head_commit.message, 'chore: release v') }}"
+        run: npm pack --ignore-scripts
+
+      - name: Upload release package
+        if: "${{ github.event_name == 'push' && startsWith(github.event.head_commit.message, 'chore: release v') }}"
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-package-${{ github.sha }}
+          path: create-fugi-*.tgz
+          if-no-files-found: error
+          retention-days: 1
+
+  publish:
+    name: Publish to npm
+    needs: test
+    if: "${{ github.event_name == 'push' && startsWith(github.event.head_commit.message, 'chore: release v') }}"
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/publish-npm.yml

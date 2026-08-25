@@ -1,17 +1,11 @@
 name: Publish to npm
 
 on:
-  push:
-    tags:
-      - "v*"
+  workflow_call:
 
 permissions:
   contents: read
   id-token: write
-
-concurrency:
-  group: "publish-npm-${{ github.ref }}"
-  cancel-in-progress: false
 
 jobs:
   publish:
@@ -21,67 +15,81 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v6
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          run_install: false
-
       - name: Set up Node.js
         uses: actions/setup-node@v6
         with:
           node-version-file: .nvmrc
-          cache: pnpm
-          cache-dependency-path: pnpm-lock.yaml
           registry-url: https://registry.npmjs.org
 
-      - name: Validate release version
+      - name: Validate release
         id: release
+        env:
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
         shell: bash
         run: |
           node --input-type=module <<'EOF'
+          import { execFileSync } from 'node:child_process';
           import fs from 'node:fs';
 
-          const ref = process.env.GITHUB_REF ?? '';
-          const refName = process.env.GITHUB_REF_NAME ?? '';
+          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          const subject = (process.env.COMMIT_MESSAGE ?? '').split(/\r?\n/, 1)[0].trim();
+          const prefix = 'chore: release v';
+          const expectedSubject = `${prefix}${pkg.version}`;
           const semver =
             /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$/;
 
-          if (!ref.startsWith('refs/tags/')) {
-            console.error(`Expected a tag ref, received: ${ref}`);
+          if (!semver.test(pkg.version)) {
+            console.error(`Package version is not valid semver: ${pkg.version}`);
             process.exit(1);
           }
 
-          if (!refName.startsWith('v')) {
-            console.error(`Release tag must start with v: ${refName}`);
+          if (subject !== expectedSubject) {
+            console.error(`Expected release commit subject: ${expectedSubject}`);
             process.exit(1);
           }
 
-          const releaseVersion = refName.slice(1);
-          if (!semver.test(releaseVersion)) {
-            console.error(`Release version is not valid semver: ${releaseVersion}`);
-            process.exit(1);
-          }
+          const releaseTag = `v${pkg.version}`;
+          execFileSync(
+            'git',
+            ['fetch', '--force', 'origin', `refs/tags/${releaseTag}:refs/tags/${releaseTag}`],
+            { stdio: 'inherit' },
+          );
 
-          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-          if (pkg.version !== releaseVersion) {
+          const tagCommit = execFileSync('git', ['rev-parse', `${releaseTag}^{commit}`], {
+            encoding: 'utf8',
+          }).trim();
+          if (tagCommit !== process.env.GITHUB_SHA) {
             console.error(
-              `package.json version ${pkg.version} does not match release tag version ${releaseVersion}`,
+              `Release tag ${releaseTag} points to ${tagCommit}, expected ${process.env.GITHUB_SHA}`,
             );
             process.exit(1);
           }
 
-          fs.appendFileSync(process.env.GITHUB_OUTPUT, `version=${releaseVersion}\n`);
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `version=${pkg.version}\n`);
           EOF
 
+      - name: Download release package
+        uses: actions/download-artifact@v8
+        with:
+          name: release-package-${{ github.sha }}
+          path: release-package
+
       - name: Ensure version is not already published
+        env:
+          RELEASE_VERSION: ${{ steps.release.outputs.version }}
         run: |
-          if npm view "create-fugi@${{ steps.release.outputs.version }}" version >/dev/null 2>&1; then
-            echo "create-fugi@${{ steps.release.outputs.version }} is already published."
+          if npm view "create-fugi@$RELEASE_VERSION" version >/dev/null 2>&1; then
+            echo "create-fugi@$RELEASE_VERSION is already published."
             exit 1
           fi
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
       - name: Publish package
-        run: npm publish --access public
+        shell: bash
+        run: |
+          shopt -s nullglob
+          packages=(release-package/*.tgz)
+          if (( ${#packages[@]} != 1 )); then
+            echo "Expected one release package, found ${#packages[@]}."
+            exit 1
+          fi
+          npm publish "${packages[0]}" --access public --ignore-scripts
