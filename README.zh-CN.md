@@ -23,7 +23,7 @@
 | EditorConfig                 | `.editorconfig`                                  | 2 空格缩进、UTF-8、LF、去尾空格（Markdown 除外）。 |
 | `.nvmrc`                     | `24`                                             | 固定本地 Node.js 主版本。                          |
 | `package.json#engines`       | `node >=24.0.0`                                  | 约束运行时兼容范围。                               |
-| `packageManager`（Corepack） | `pnpm@10.28.2`                                   | 通过 Corepack 固定包管理器版本。                   |
+| `packageManager`（Corepack） | `pnpm@12.3.4`                                    | 通过 Corepack 固定包管理器版本。                   |
 | Oxlint                       | `.oxlintrc.json`                                 | 以 error 级别执行 JS/TS correctness 检查。         |
 | Oxfmt                        | `.oxfmtrc.json`                                  | 统一代码格式并排序 Tailwind CSS class。            |
 | Stylelint                    | `.stylelintrc.cjs` + `stylelint-config-standard` | CSS/SCSS 规范检查，包含 Tailwind at-rule 白名单。  |

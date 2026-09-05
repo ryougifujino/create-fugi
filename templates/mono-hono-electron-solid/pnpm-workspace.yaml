@@ -13,3 +13,8 @@ catalog:
   vite: ^8.2.1
   vite-plugin-solid: ^2.11.14
   zod: ^4.4.3
+
+allowBuilds:
+  lefthook: true
+  electron: true
+  electron-winstaller: true

@@ -664,7 +664,7 @@ async function runCommand({ cwd, title, args }) {
   const commandEnv = storeDir
     ? {
         ...process.env,
-        npm_config_store_dir: storeDir,
+        pnpm_config_store_dir: storeDir,
       }
     : process.env;
 

@@ -10,3 +10,8 @@ catalog:
   typescript: ~7.0.2
   vite: ^8.2.1
   vite-plugin-solid: ^2.11.14
+
+allowBuilds:
+  lefthook: true
+  electron: true
+  electron-winstaller: true

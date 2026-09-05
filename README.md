@@ -23,7 +23,7 @@ Examples:
 | EditorConfig                | `.editorconfig`                                  | 2-space indent, UTF-8, LF, trim trailing whitespace (Markdown excluded). |
 | `.nvmrc`                    | `24`                                             | Pins the local Node.js major version.                                    |
 | `package.json#engines`      | `node >=24.0.0`                                  | Enforces runtime compatibility.                                          |
-| `packageManager` (Corepack) | `pnpm@10.28.2`                                   | Use Corepack to keep package manager version consistent.                 |
+| `packageManager` (Corepack) | `pnpm@12.3.4`                                    | Use Corepack to keep package manager version consistent.                 |
 | Oxlint                      | `.oxlintrc.json`                                 | Runs JS/TS correctness checks as errors.                                 |
 | Oxfmt                       | `.oxfmtrc.json`                                  | Unified formatting rules and Tailwind CSS class sorting.                 |
 | Stylelint                   | `.stylelintrc.cjs` + `stylelint-config-standard` | Lints CSS/SCSS, including Tailwind at-rule allowances.                   |

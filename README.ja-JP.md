@@ -23,7 +23,7 @@
 | EditorConfig                 | `.editorconfig`                                  | 2 スペース、UTF-8、LF、末尾空白削除（Markdown 除く）。 |
 | `.nvmrc`                     | `24`                                             | ローカルの Node.js メジャーバージョンを固定。          |
 | `package.json#engines`       | `node >=24.0.0`                                  | 実行環境の互換性を明示。                               |
-| `packageManager`（Corepack） | `pnpm@10.28.2`                                   | Corepack でパッケージマネージャーの版を固定。          |
+| `packageManager`（Corepack） | `pnpm@12.3.4`                                    | Corepack でパッケージマネージャーの版を固定。          |
 | Oxlint                       | `.oxlintrc.json`                                 | JS/TS の correctness チェックを error として実行。     |
 | Oxfmt                        | `.oxfmtrc.json`                                  | コード整形と Tailwind CSS class の並びを統一。         |
 | Stylelint                    | `.stylelintrc.cjs` + `stylelint-config-standard` | CSS/SCSS を検査し、Tailwind の at-rule を許可。        |
