@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
+    "dev": "node --watch src/index.ts",
     "typecheck": "tsc --noEmit",
     "build": "pnpm typecheck && tsc",
     "start": "node dist/index.js"
@@ -15,7 +15,6 @@
   },
   "devDependencies": {
     "@types/node": "catalog:",
-    "tsx": "^4.23.15",
     "typescript": "catalog:"
   }
 }

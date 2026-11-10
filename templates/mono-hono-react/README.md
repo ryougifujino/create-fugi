@@ -23,7 +23,7 @@ From the workspace root, you can run:
 ### `pnpm dev`
 
 Starts the full development workflow.<br>
-The frontend runs on Vite and the backend runs with `tsx watch`.
+The frontend runs on Vite and the backend runs with `node --watch`.
 
 ### `pnpm dev:web`
 

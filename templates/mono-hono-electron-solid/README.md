@@ -24,7 +24,7 @@ From the workspace root, you can run:
 
 Starts the full development workflow.<br>
 The renderer runs on Vite with HMR, Electron restarts automatically after
-Electron bundle rebuilds, and the backend runs with `tsx watch`.
+Electron bundle rebuilds, and the backend runs with `node --watch`.
 
 ### `pnpm dev:desktop`
 
