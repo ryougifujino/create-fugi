@@ -5,7 +5,7 @@ Solid and Vite provide the frontend. Go's standard `net/http` package serves the
 ## Requirements
 
 - Go 1.27.1 or newer
-- Node.js 24 or newer and pnpm
+- Node.js 26 or newer and pnpm
 
 ## Development
 

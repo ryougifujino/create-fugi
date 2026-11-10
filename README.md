@@ -20,11 +20,13 @@ Examples:
 
 ## Constraints and Checks
 
+Projects created from these templates require Node.js 26 or newer.
+
 | Item                        | Default                                          | Constraint / Purpose                                                     |
 | --------------------------- | ------------------------------------------------ | ------------------------------------------------------------------------ |
 | EditorConfig                | `.editorconfig`                                  | 2-space indent, UTF-8, LF, trim trailing whitespace (Markdown excluded). |
-| `.nvmrc`                    | `24`                                             | Pins the local Node.js major version.                                    |
-| `package.json#engines`      | `node >=24.0.0`                                  | Enforces runtime compatibility.                                          |
+| `.nvmrc`                    | `26`                                             | Selects Node.js for local development, CI, and npm publishing.           |
+| `package.json#engines`      | `node >=24.0.0`                                  | Declares the minimum Node.js version for the CLI.                        |
 | `packageManager` (Corepack) | `pnpm@12.18.0`                                   | Use Corepack to keep package manager version consistent.                 |
 | Oxlint                      | `.oxlintrc.json`                                 | Runs JS/TS correctness checks as errors.                                 |
 | Oxfmt                       | `.oxfmtrc.json`                                  | Unified formatting rules and Tailwind CSS class sorting.                 |

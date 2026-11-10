@@ -20,11 +20,13 @@
 
 ## 制約とチェック
 
+テンプレートから生成したプロジェクトには Node.js 26 以上が必要です。
+
 | 項目                         | デフォルト                                       | 制約 / 目的                                            |
 | ---------------------------- | ------------------------------------------------ | ------------------------------------------------------ |
 | EditorConfig                 | `.editorconfig`                                  | 2 スペース、UTF-8、LF、末尾空白削除（Markdown 除く）。 |
-| `.nvmrc`                     | `24`                                             | ローカルの Node.js メジャーバージョンを固定。          |
-| `package.json#engines`       | `node >=24.0.0`                                  | 実行環境の互換性を明示。                               |
+| `.nvmrc`                     | `26`                                             | ローカル開発、CI、npm 公開で使う Node.js を指定。      |
+| `package.json#engines`       | `node >=24.0.0`                                  | CLI に必要な Node.js の最小バージョンを指定。          |
 | `packageManager`（Corepack） | `pnpm@12.18.0`                                   | Corepack でパッケージマネージャーの版を固定。          |
 | Oxlint                       | `.oxlintrc.json`                                 | JS/TS の correctness チェックを error として実行。     |
 | Oxfmt                        | `.oxfmtrc.json`                                  | コード整形と Tailwind CSS class の並びを統一。         |

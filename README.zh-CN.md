@@ -20,11 +20,13 @@
 
 ## 约束与检查
 
+模板生成的项目需要 Node.js 26 或更新版本。
+
 | 项                           | 默认值                                           | 约束 / 作用                                        |
 | ---------------------------- | ------------------------------------------------ | -------------------------------------------------- |
 | EditorConfig                 | `.editorconfig`                                  | 2 空格缩进、UTF-8、LF、去尾空格（Markdown 除外）。 |
-| `.nvmrc`                     | `24`                                             | 固定本地 Node.js 主版本。                          |
-| `package.json#engines`       | `node >=24.0.0`                                  | 约束运行时兼容范围。                               |
+| `.nvmrc`                     | `26`                                             | 指定本地开发、CI 和 npm 发布使用的 Node.js 版本。  |
+| `package.json#engines`       | `node >=24.0.0`                                  | 声明 CLI 所需的最低 Node.js 版本。                 |
 | `packageManager`（Corepack） | `pnpm@12.18.0`                                   | 通过 Corepack 固定包管理器版本。                   |
 | Oxlint                       | `.oxlintrc.json`                                 | 以 error 级别执行 JS/TS correctness 检查。         |
 | Oxfmt                        | `.oxfmtrc.json`                                  | 统一代码格式并排序 Tailwind CSS class。            |
