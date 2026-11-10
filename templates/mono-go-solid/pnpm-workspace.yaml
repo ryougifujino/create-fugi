@@ -1,0 +1,12 @@
+packages:
+  - apps/*
+
+catalog:
+  '@types/node': ^24.10.12
+  solid-js: ^1.9.15
+  typescript: ~7.0.2
+  vite: ^8.2.1
+  vite-plugin-solid: ^2.11.14
+
+allowBuilds:
+  lefthook: true

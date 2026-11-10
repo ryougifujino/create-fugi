@@ -1,0 +1,57 @@
+{
+  "name": "mono-go-solid",
+  "version": "0.0.0",
+  "private": true,
+  "description": "",
+  "keywords": [],
+  "license": "ISC",
+  "author": "",
+  "scripts": {
+    "dev": "pnpm -r --parallel --stream dev",
+    "dev:web": "pnpm --filter @mono-go-solid/web dev",
+    "dev:server": "pnpm --filter @mono-go-solid/server dev",
+    "build": "pnpm -r build",
+    "build:embed": "pnpm --filter @mono-go-solid/web build && pnpm --filter @mono-go-solid/server build:embed",
+    "start": "pnpm --filter @mono-go-solid/server start",
+    "preview": "pnpm --filter @mono-go-solid/web preview",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "oxlint",
+    "lint:fix": "oxlint --fix",
+    "stylelint": "stylelint \"apps/**/*.{css,scss}\"",
+    "stylelint:fix": "pnpm stylelint --fix \"apps/**/*.{css,scss}\"",
+    "fmt": "node scripts/gofmt.mjs && oxfmt",
+    "fmt:check": "node scripts/gofmt.mjs --check && oxfmt --check",
+    "lint-staged": "lint-staged",
+    "commitlint": "commitlint",
+    "prepare": "lefthook install"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^21.2.2",
+    "@commitlint/config-conventional": "^21.2.2",
+    "eslint-plugin-solid": "^0.15.0",
+    "lefthook": "^2.1.10",
+    "lint-staged": "^17.3.0",
+    "oxfmt": "^0.64.0",
+    "oxlint": "^1.79.0",
+    "stylelint": "^17.14.1",
+    "stylelint-config-standard": "^40.0.0"
+  },
+  "lint-staged": {
+    "*.go": "gofmt -w",
+    "*.{js,jsx,ts,tsx}": [
+      "oxlint --fix",
+      "oxfmt"
+    ],
+    "*.{css,scss}": [
+      "stylelint --fix",
+      "oxfmt"
+    ],
+    "*.{json,md,html,yml,yaml}": [
+      "oxfmt"
+    ]
+  },
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "packageManager": "pnpm@12.3.4"
+}

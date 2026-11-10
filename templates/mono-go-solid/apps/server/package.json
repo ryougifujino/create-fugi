@@ -1,0 +1,13 @@
+{
+  "name": "@mono-go-solid/server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "go run github.com/air-verse/air@v1.67.4 -c .air.toml",
+    "typecheck": "go vet .",
+    "build": "go build -o dist/api/ .",
+    "build:embed": "go build -tags embed_web -o dist/embed/ .",
+    "start": "node start.mjs"
+  }
+}

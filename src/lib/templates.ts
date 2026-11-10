@@ -19,6 +19,7 @@ const TEMPLATE_DESCRIPTIONS: Record<string, string> = {
   react: 'Single-package React frontend (Vite)',
   'mono-node': 'Monorepo with a Node.js app',
   'mono-go-react': 'Monorepo with a React frontend and a Go backend',
+  'mono-go-solid': 'Monorepo with a Solid frontend and a Go backend',
   'mono-hono-react': 'Monorepo with a React frontend and a Hono backend',
   'mono-electron-react': 'Monorepo with an Electron + React desktop app',
   'mono-electron-solid': 'Monorepo with an Electron + Solid desktop app',
