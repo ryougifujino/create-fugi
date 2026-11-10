@@ -88,7 +88,7 @@ test('runCreateCommand copies selected template into new project directory', asy
   }
 });
 
-test('runCreateCommand scaffolds into the current directory when "." is given', async () => {
+test('runCreateCommand scaffolds into the current directory and preserves existing Git hooks', async () => {
   const tempRootDir = await mkdtemp(path.join(os.tmpdir(), 'create-fugi-create-'));
 
   try {
@@ -96,10 +96,14 @@ test('runCreateCommand scaffolds into the current directory when "." is given', 
     const gitignoresRootDir = path.join(tempRootDir, 'gitignores');
     const reactTemplateDir = path.join(templatesRootDir, 'react');
     const cwd = path.join(tempRootDir, 'demo-app');
+    const hooksDir = path.join(cwd, '.git', 'hooks');
+    const hookPath = path.join(hooksDir, 'custom.js');
+    const hookContent = 'import "@react/api";\n';
 
     await mkdir(reactTemplateDir, { recursive: true });
     await mkdir(gitignoresRootDir, { recursive: true });
-    await mkdir(path.join(cwd, '.git'), { recursive: true });
+    await mkdir(hooksDir, { recursive: true });
+    await writeFile(hookPath, hookContent);
     await writeFile(path.join(gitignoresRootDir, 'react_gitignore'), 'node_modules\n');
     await writeFile(
       path.join(reactTemplateDir, 'package.json'),
@@ -126,6 +130,7 @@ test('runCreateCommand scaffolds into the current directory when "." is given', 
 
     assert.match(packageJson, /"name": "demo-app"/);
     assert.equal(gitignore, 'node_modules\n');
+    assert.equal(await readFile(hookPath, 'utf-8'), hookContent);
     assert.equal(logs.at(-1), 'Next steps:\n  pnpm install\n  pnpm dev');
   } finally {
     await rm(tempRootDir, { recursive: true, force: true });

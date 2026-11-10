@@ -201,6 +201,11 @@ async function customizeDirectory(targetDir: string, templateName: string, proje
   const entries = await readdir(targetDir, { withFileTypes: true })
 
   for (const entry of entries) {
+    // Scaffolding into the current directory can leave existing metadata in place.
+    if (IGNORED_TARGET_DIRECTORY_ENTRIES.has(entry.name)) {
+      continue
+    }
+
     const entryPath = path.join(targetDir, entry.name)
 
     if (entry.isDirectory()) {
