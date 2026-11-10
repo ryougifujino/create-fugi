@@ -8,7 +8,6 @@
     "typecheck": "go vet .",
     "build": "go build -o dist/api/ .",
     "build:embed": "go build -tags embed_web -o dist/embed/ .",
-    "start": "node start.mjs api",
-    "start:embed": "node start.mjs embed"
+    "start": "node start.mjs"
   }
 }

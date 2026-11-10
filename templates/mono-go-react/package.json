@@ -13,7 +13,6 @@
     "build": "pnpm -r build",
     "build:embed": "pnpm --filter @mono-go-react/web build && pnpm --filter @mono-go-react/server build:embed",
     "start": "pnpm --filter @mono-go-react/server start",
-    "start:embed": "pnpm --filter @mono-go-react/server start:embed",
     "preview": "pnpm --filter @mono-go-react/web preview",
     "typecheck": "pnpm -r typecheck",
     "lint": "oxlint",

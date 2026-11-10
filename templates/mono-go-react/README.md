@@ -33,7 +33,9 @@ Deploy `apps/web/dist` to a static host and run the API binary in `apps/server/d
 
 ```bash
 pnpm build:embed
-pnpm start:embed
+./apps/server/dist/embed/server
 ```
 
-This builds React first, then embeds the Vite output in the Go binary in `apps/server/dist/embed`. Run the binary directly to serve both the frontend and API from [http://localhost:3000](http://localhost:3000). Use `PORT` to change the listen port. This build uses the same API as the separate deployment.
+On Windows, run `apps/server/dist/embed/server.exe`.
+
+The build embeds the Vite output in the Go binary, which serves both the frontend and API from [http://localhost:3000](http://localhost:3000). Use `PORT` to change the listen port.
