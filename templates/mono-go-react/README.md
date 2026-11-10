@@ -4,7 +4,7 @@ React and Vite provide the frontend. Go's standard `net/http` package serves the
 
 ## Requirements
 
-- Go 1.22 or newer
+- Go 1.27.1 or newer
 - Node.js 24 or newer and pnpm
 
 ## Development
@@ -16,7 +16,7 @@ pnpm dev
 
 Open [http://localhost:5173](http://localhost:5173). Vite proxies `/api` requests to Go on port 3000. Set `PORT` in the environment before starting both apps to use a different Go port.
 
-Run `pnpm dev:web` or `pnpm dev:server` to start an app on its own. Vite hot-reloads the frontend. Restart the Go process after changing Go source files.
+Run `pnpm dev:web` or `pnpm dev:server` to start an app on its own. Vite hot-reloads the frontend. Air rebuilds and restarts the Go API when a Go file under `apps/server` changes. The first run downloads the pinned Air version through Go.
 
 The example page calls `GET /api/hello?name=Go` with `fetch`. The server validates the name and returns JSON. The frontend declares its request and response types in TypeScript.
 
