@@ -20,6 +20,8 @@ Run `pnpm dev:web` or `pnpm dev:server` to start an app on its own. Vite hot-rel
 
 The example page calls `GET /api/hello?name=Go` with `fetch`. The server validates the name and returns JSON. The frontend declares its request and response types in TypeScript.
 
+Use `pnpm fmt` to format the workspace and `pnpm fmt:check` to check formatting. Both commands use `gofmt` for Go files. The pre-commit hook formats staged Go files.
+
 ## Separate frontend and API
 
 ```bash

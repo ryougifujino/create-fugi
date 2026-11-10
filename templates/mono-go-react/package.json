@@ -19,8 +19,8 @@
     "lint:fix": "oxlint --fix",
     "stylelint": "stylelint \"apps/**/*.{css,scss}\"",
     "stylelint:fix": "pnpm stylelint --fix \"apps/**/*.{css,scss}\"",
-    "fmt": "oxfmt",
-    "fmt:check": "oxfmt --check",
+    "fmt": "node scripts/gofmt.mjs && oxfmt",
+    "fmt:check": "node scripts/gofmt.mjs --check && oxfmt --check",
     "lint-staged": "lint-staged",
     "commitlint": "commitlint",
     "prepare": "lefthook install"
@@ -36,6 +36,7 @@
     "stylelint-config-standard": "^40.0.0"
   },
   "lint-staged": {
+    "*.go": "gofmt -w",
     "*.{js,jsx,ts,tsx}": [
       "oxlint --fix",
       "oxfmt"
