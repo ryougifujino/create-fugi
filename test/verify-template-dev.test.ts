@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  findRunningProcessGroups,
   renderDashboard,
   sanitizeLogChunk,
   stripAnsi,
@@ -72,4 +73,18 @@ test('sanitizeLogChunk removes terminal control sequences and splits carriage re
     'ready',
     'building 50%',
   ]);
+});
+
+test('tracks nested dev process groups after pnpm exits and its children are reparented', () => {
+  const running = findRunningProcessGroups(
+    '100 50 100 S\n101 100 101 S\n102 101 102 S\n200 50 200 S',
+    new Set([100]),
+  );
+  assert.deepEqual(running, new Set([100, 101, 102]));
+
+  const remaining = findRunningProcessGroups(
+    '101 1 101 Z\n102 1 102 S\n103 102 103 S\n200 50 200 S',
+    running,
+  );
+  assert.deepEqual(remaining, new Set([102, 103]));
 });

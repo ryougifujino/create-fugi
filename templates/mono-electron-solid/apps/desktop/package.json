@@ -15,11 +15,11 @@
   "devDependencies": {
     "@tailwindcss/vite": "catalog:",
     "@types/node": "catalog:",
-    "electron": "^43.4.1",
-    "electron-builder": "^26.15.7",
+    "electron": "^45.2.3",
+    "electron-builder": "^26.18.0",
     "solid-js": "catalog:",
     "tailwindcss": "catalog:",
-    "tsdown": "^0.22.14",
+    "tsdown": "^0.23.7",
     "typescript": "catalog:",
     "vite": "catalog:",
     "vite-plugin-solid": "catalog:"

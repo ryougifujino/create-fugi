@@ -1,9 +1,11 @@
-import { spawn } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
 import readline from 'node:readline';
+import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
 import chalk from 'chalk';
 
 const scriptPath = fileURLToPath(import.meta.url);
@@ -15,6 +17,9 @@ const continueKey = 'c';
 const quitKey = 'q';
 const stopTimeoutMs = 5_000;
 const killTimeoutMs = 2_000;
+const processTrackingIntervalMs = 500;
+const stopPollIntervalMs = 100;
+const execFileAsync = promisify(execFile);
 const dryRunEnabled = process.argv.includes('--dry-run');
 const renderIntervalMs = 80;
 const maximumBufferedLogLines = 2_000;
@@ -264,6 +269,10 @@ async function reviewTemplate(template, index, total, dashboard) {
   });
 
   const exitPromise = waitForChildExit(childProcess);
+  const processTracker =
+    process.platform !== 'win32' && childProcess.pid !== undefined
+      ? trackProcessGroups(childProcess.pid)
+      : null;
   const actionWaiter = createActionWaiter();
   let firstResult;
 
@@ -274,18 +283,25 @@ async function reviewTemplate(template, index, total, dashboard) {
     ]);
   } finally {
     actionWaiter.cancel();
+    await processTracker?.stopTracking();
   }
 
   if (firstResult.type === 'action') {
-    if (firstResult.action === 'abort') {
-      dashboard.setPhase('Stopping dev server…');
-      await stopChildProcess(childProcess, exitPromise, dashboard);
+    const { action } = firstResult;
+    dashboard.setPhase(
+      action !== 'continue'
+        ? 'Stopping dev server…'
+        : index + 1 < total
+          ? 'Stopping, then moving to next…'
+          : 'Finishing review…',
+    );
+    await stopChildProcess(childProcess, exitPromise, dashboard, processTracker);
+
+    if (action === 'abort') {
       throw createAbortError();
     }
 
-    if (firstResult.action === 'quit') {
-      dashboard.setPhase('Stopping dev server…');
-      await stopChildProcess(childProcess, exitPromise, dashboard);
+    if (action === 'quit') {
       dashboard.setTemplateResult(index, 'quit', 'quit by user');
 
       return {
@@ -295,8 +311,6 @@ async function reviewTemplate(template, index, total, dashboard) {
       };
     }
 
-    dashboard.setPhase(index + 1 < total ? 'Stopping, then moving to next…' : 'Finishing review…');
-    await stopChildProcess(childProcess, exitPromise, dashboard);
     dashboard.setTemplateResult(index, 'continued', 'reviewed');
 
     return {
@@ -306,6 +320,8 @@ async function reviewTemplate(template, index, total, dashboard) {
     };
   }
 
+  dashboard.setPhase('Stopping remaining dev processes…');
+  await stopChildProcess(childProcess, exitPromise, dashboard, processTracker);
   const exitLabel = formatExit(firstResult.exit);
   const exitStatus = firstResult.exit.code === 0 ? 'exited' : 'failed';
   dashboard.setTemplateResult(index, exitStatus, exitLabel);
@@ -399,45 +415,122 @@ function waitForChildExit(childProcess) {
   });
 }
 
-async function stopChildProcess(childProcess, exitPromise, dashboard) {
-  if (childProcess.exitCode !== null || childProcess.signalCode !== null) {
+function trackProcessGroups(rootPid) {
+  let groups = new Set([rootPid]);
+  let scanPromise;
+
+  function scan() {
+    scanPromise ??= execFileAsync('ps', ['-ax', '-o', 'pid=,ppid=,pgid=,stat='])
+      .then(({ stdout }) => {
+        groups = findRunningProcessGroups(stdout, groups);
+        return groups;
+      })
+      .finally(() => {
+        scanPromise = undefined;
+      });
+    return scanPromise;
+  }
+
+  // Remember groups while pnpm is running, before their members can be reparented.
+  const timer = setInterval(() => {
+    void scan().catch(() => {
+      // Retry during shutdown, where a scan failure can be reported to the user.
+    });
+  }, processTrackingIntervalMs);
+  timer.unref();
+
+  return {
+    scan,
+    async stopTracking() {
+      clearInterval(timer);
+      await scanPromise?.catch(() => {});
+    },
+  };
+}
+
+function findRunningProcessGroups(processList, groups) {
+  const childrenByParent = new Map();
+  const pending = [];
+  for (const line of processList.trim().split('\n')) {
+    const [pidText, parentText, groupText, status] = line.trim().split(/\s+/);
+    const group = Number(groupText);
+    if (!(group > 1) || !status || status.startsWith('Z')) {
+      continue;
+    }
+
+    const entry = { pid: Number(pidText), group };
+    const parent = Number(parentText);
+    const siblings = childrenByParent.get(parent) ?? [];
+    siblings.push(entry);
+    childrenByParent.set(parent, siblings);
+
+    if (groups.has(entry.group)) {
+      pending.push(entry);
+    }
+  }
+
+  const seen = new Set();
+  const runningGroups = new Set();
+  for (const { pid, group } of pending) {
+    if (seen.has(pid)) {
+      continue;
+    }
+    seen.add(pid);
+    runningGroups.add(group);
+    pending.push(...(childrenByParent.get(pid) ?? []));
+  }
+  return runningGroups;
+}
+
+async function stopChildProcess(childProcess, exitPromise, dashboard, processTracker) {
+  async function stop(signal, timeoutMs) {
+    if (processTracker !== null) {
+      return stopProcessGroups(processTracker, signal, timeoutMs);
+    }
+    if (childProcess.exitCode === null && childProcess.signalCode === null) {
+      childProcess.kill(signal);
+    }
+    return (await raceWithTimeout(exitPromise, timeoutMs)) !== null;
+  }
+
+  if (await stop('SIGINT', stopTimeoutMs)) {
+    return exitPromise;
+  }
+  dashboard.appendLog(
+    `Dev processes did not exit within ${stopTimeoutMs / 1000}s. Sending SIGKILL…`,
+    'system',
+  );
+  if (await stop('SIGKILL', killTimeoutMs)) {
     return exitPromise;
   }
 
-  sendSignal(childProcess, 'SIGINT');
-
-  const gracefulExit = await raceWithTimeout(exitPromise, stopTimeoutMs);
-  if (gracefulExit !== null) {
-    return gracefulExit;
-  }
-
-  dashboard.appendLog(
-    `Process did not exit within ${stopTimeoutMs / 1000}s. Sending SIGKILL…`,
-    'system',
-  );
-  sendSignal(childProcess, 'SIGKILL');
-
-  const forcedExit = await raceWithTimeout(exitPromise, killTimeoutMs);
-  if (forcedExit !== null) {
-    return forcedExit;
-  }
-
-  throw new Error('Failed to stop pnpm dev after SIGINT and SIGKILL.');
+  throw new Error('Failed to stop all dev processes after SIGINT and SIGKILL.');
 }
 
-function sendSignal(childProcess, signal) {
-  try {
-    if (process.platform !== 'win32' && typeof childProcess.pid === 'number') {
-      process.kill(-childProcess.pid, signal);
-      return;
+async function stopProcessGroups(processTracker, signal, timeoutMs) {
+  const signaled = new Set();
+  const deadline = performance.now() + timeoutMs;
+  do {
+    const groups = await processTracker.scan();
+    if (groups.size === 0) {
+      return true;
     }
-
-    childProcess.kill(signal);
-  } catch (error) {
-    if (error?.code !== 'ESRCH') {
-      throw error;
+    for (const group of groups) {
+      if (signaled.has(group)) {
+        continue;
+      }
+      try {
+        process.kill(-group, signal);
+      } catch (error) {
+        if (error?.code !== 'ESRCH') {
+          throw error;
+        }
+      }
+      signaled.add(group);
     }
-  }
+    await delay(stopPollIntervalMs);
+  } while (performance.now() < deadline);
+  return false;
 }
 
 async function raceWithTimeout(promise, timeoutMs) {
@@ -798,4 +891,4 @@ if (isDirectRun) {
   }
 }
 
-export { renderDashboard, sanitizeLogChunk, stripAnsi };
+export { findRunningProcessGroups, renderDashboard, sanitizeLogChunk, stripAnsi };
