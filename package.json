@@ -44,6 +44,7 @@
     "test": "pnpm typecheck && node --test \"test/**/*.test.ts\"",
     "up-template-deps": "node scripts/up-template-deps.js",
     "verify-template-dev": "node scripts/verify-template-dev.js",
+    "verify-template-dev:auto": "node scripts/verify-template-dev.js --auto",
     "release": "pnpm exec bumpp",
     "prepublishOnly": "pnpm test && pnpm build"
   },
@@ -63,6 +64,7 @@
     "ora": "^9.3.0",
     "oxfmt": "^0.60.0",
     "oxlint": "^1.75.0",
+    "playwright": "^1.65.0",
     "rimraf": "^6.1.2",
     "typescript": "~7.0.2"
   },

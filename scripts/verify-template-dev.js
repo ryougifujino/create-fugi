@@ -21,6 +21,7 @@ const processTrackingIntervalMs = 500;
 const stopPollIntervalMs = 100;
 const execFileAsync = promisify(execFile);
 const dryRunEnabled = process.argv.includes('--dry-run');
+const autoEnabled = process.argv.includes('--auto');
 const renderIntervalMs = 80;
 const maximumBufferedLogLines = 2_000;
 
@@ -66,6 +67,12 @@ async function main() {
 
   if (dryRunEnabled) {
     renderDryRun(runnableTemplates, skippedTemplates);
+    return;
+  }
+
+  if (autoEnabled) {
+    const { verifyTemplates } = await import('./verify-template-dev-auto.js');
+    await verifyTemplates(runnableTemplates, skippedTemplates, startTemplateDev, pnpmCommand);
     return;
   }
 
@@ -244,20 +251,39 @@ function createDashboard(templates) {
   };
 }
 
-async function reviewTemplate(template, index, total, dashboard) {
-  dashboard.setCurrent(index);
-  dashboard.appendLog(`$ pnpm dev  # ${relativeToRepo(template.absolutePath)}`, 'system');
-
+function startTemplateDev(template, env = {}) {
   const childProcess = spawn(pnpmCommand, ['dev'], {
     cwd: template.absolutePath,
     env: {
       ...process.env,
       FORCE_COLOR: '0',
+      ...env,
     },
     stdio: ['ignore', 'pipe', 'pipe'],
     detached: process.platform !== 'win32',
     windowsHide: true,
   });
+  const exitPromise = waitForChildExit(childProcess);
+  const processTracker =
+    process.platform !== 'win32' && childProcess.pid !== undefined
+      ? trackProcessGroups(childProcess.pid)
+      : null;
+
+  return {
+    childProcess,
+    exitPromise,
+    async stop(logger) {
+      await processTracker?.stopTracking();
+      return stopChildProcess(childProcess, exitPromise, logger, processTracker);
+    },
+  };
+}
+
+async function reviewTemplate(template, index, total, dashboard) {
+  dashboard.setCurrent(index);
+  dashboard.appendLog(`$ pnpm dev  # ${relativeToRepo(template.absolutePath)}`, 'system');
+
+  const { childProcess, exitPromise, stop } = startTemplateDev(template);
   dashboard.setPhase('Dev server running. Inspect it, then press c to continue.');
 
   childProcess.stdout?.on('data', (chunk) => {
@@ -268,11 +294,6 @@ async function reviewTemplate(template, index, total, dashboard) {
     dashboard.appendLog(chunk.toString(), 'stderr');
   });
 
-  const exitPromise = waitForChildExit(childProcess);
-  const processTracker =
-    process.platform !== 'win32' && childProcess.pid !== undefined
-      ? trackProcessGroups(childProcess.pid)
-      : null;
   const actionWaiter = createActionWaiter();
   let firstResult;
 
@@ -283,7 +304,6 @@ async function reviewTemplate(template, index, total, dashboard) {
     ]);
   } finally {
     actionWaiter.cancel();
-    await processTracker?.stopTracking();
   }
 
   if (firstResult.type === 'action') {
@@ -295,7 +315,7 @@ async function reviewTemplate(template, index, total, dashboard) {
           ? 'Stopping, then moving to next…'
           : 'Finishing review…',
     );
-    await stopChildProcess(childProcess, exitPromise, dashboard, processTracker);
+    await stop(dashboard);
 
     if (action === 'abort') {
       throw createAbortError();
@@ -321,7 +341,7 @@ async function reviewTemplate(template, index, total, dashboard) {
   }
 
   dashboard.setPhase('Stopping remaining dev processes…');
-  await stopChildProcess(childProcess, exitPromise, dashboard, processTracker);
+  await stop(dashboard);
   const exitLabel = formatExit(firstResult.exit);
   const exitStatus = firstResult.exit.code === 0 ? 'exited' : 'failed';
   dashboard.setTemplateResult(index, exitStatus, exitLabel);
