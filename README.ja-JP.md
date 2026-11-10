@@ -13,6 +13,7 @@
 例:
 
 - `react`: シングルパッケージの React フロントエンドテンプレート。
+- `mono-go-react`: React フロントエンドと Go バックエンドの monorepo。フロントエンドは Go バイナリに埋め込み可能。
 - `mono-hono-react`: monorepo のフルスタックテンプレート（React + Hono）。
 - ほかの主要差分（例: `electron`）も、必要に応じてテンプレート名で表現します。
 

@@ -1,0 +1,14 @@
+{
+  "name": "@mono-go-react/server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "go run .",
+    "typecheck": "go vet .",
+    "build": "go build -o dist/api/ .",
+    "build:embed": "go build -tags embed_web -o dist/embed/ .",
+    "start": "node start.mjs api",
+    "start:embed": "node start.mjs embed"
+  }
+}
