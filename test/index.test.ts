@@ -43,6 +43,18 @@ test('runCli forwards project name and template arguments', async () => {
   assert.deepEqual(receivedOptions, { projectName: 'my-app', templateName: 'react' });
 });
 
+test('runCli accepts create as a project name', async () => {
+  let receivedOptions: CreateCliOptions | undefined;
+  const exitCode = await runCli(['create', '-t', 'react'], {
+    runCreateCommand: async (options) => {
+      receivedOptions = options;
+    },
+  });
+
+  assert.equal(exitCode, 0);
+  assert.deepEqual(receivedOptions, { projectName: 'create', templateName: 'react' });
+});
+
 test('runCli supports the explicit create command with short template flag', async () => {
   let receivedOptions: CreateCliOptions | undefined;
   const exitCode = await runCli(['create', 'my-app', '-t', 'react'], {

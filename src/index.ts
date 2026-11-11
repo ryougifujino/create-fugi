@@ -69,7 +69,7 @@ export async function runCli(argv: string[], dependencies: CliDependencies = {})
     return 0
   }
 
-  const projectNameArgs = positionals[0] === 'create' ? positionals.slice(1) : positionals
+  const projectNameArgs = positionals.length > 1 && positionals[0] === 'create' ? positionals.slice(1) : positionals
 
   if (projectNameArgs.length > 1) {
     writeStdout(HELP_TEXT)
