@@ -47,16 +47,20 @@ jobs:
       - name: Build
         run: pnpm build
 
-      - name: Pack release
+      - name: Pack and verify release
         if: "${{ github.event_name == 'push' && startsWith(github.event.head_commit.message, 'chore: release v') }}"
-        run: npm pack --ignore-scripts
+        id: release-package
+        run: |
+          tarball=$(npm pack --ignore-scripts --pack-destination "$RUNNER_TEMP" --quiet)
+          node scripts/verify-npm-package.js "$RUNNER_TEMP/$tarball"
+          echo "tarball=$RUNNER_TEMP/$tarball" >> "$GITHUB_OUTPUT"
 
       - name: Upload release package
         if: "${{ github.event_name == 'push' && startsWith(github.event.head_commit.message, 'chore: release v') }}"
         uses: actions/upload-artifact@v7
         with:
           name: release-package-${{ github.sha }}
-          path: create-fugi-*.tgz
+          path: ${{ steps.release-package.outputs.tarball }}
           if-no-files-found: error
           retention-days: 1
 
