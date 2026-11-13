@@ -39,7 +39,7 @@
     "lint:fix": "oxlint --fix src test",
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check",
-    "typecheck": "tsc --noEmit && tsc -p tsconfig.scripts.json",
+    "typecheck": "tsc --noEmit && tsc -p scripts",
     "build": "rimraf dist gitignores && node scripts/sync-gitignores.ts && tsc",
     "test": "pnpm typecheck && node --test \"test/**/*.test.ts\"",
     "up-template-deps": "node scripts/up-template-deps.ts",
