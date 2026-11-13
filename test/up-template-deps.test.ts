@@ -11,7 +11,7 @@ import {
   parseWorkspacePackagePatterns,
   removeTemplateLockfile,
   selectValidationScripts,
-} from '../scripts/up-template-deps.js';
+} from '../scripts/up-template-deps.ts';
 
 test('removeTemplateLockfile removes a lockfile and tolerates an absent one', async (context) => {
   const templateDir = await mkdtemp(path.join(os.tmpdir(), 'create-fugi-template-'));

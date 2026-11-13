@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "./scripts",
+    "noEmit": true,
+    "erasableSyntaxOnly": true
+  },
+  "include": ["scripts"]
+}

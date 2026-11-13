@@ -6,19 +6,20 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const tarball = process.argv[2]
-assert.ok(tarball, 'Usage: node scripts/verify-npm-package.js <tarball>')
+assert.ok(tarball, 'Usage: node scripts/verify-npm-package.ts <tarball>')
 
 const repoRoot = fileURLToPath(new URL('..', import.meta.url))
-const templates = new Map()
+const templates = new Map<string, string[]>()
 const trackedFiles = execFileSync('git', ['ls-files', '-z', '--', 'templates/'], {
   cwd: repoRoot,
   encoding: 'utf8',
 })
 for (const file of trackedFiles.split('\0').filter(Boolean)) {
   const [, template, ...segments] = file.split('/')
-  if (segments.length === 0) continue
-  if (!templates.has(template)) templates.set(template, [])
-  templates.get(template).push(segments.join('/'))
+  if (template === undefined || segments.length === 0) continue
+  const files = templates.get(template) ?? []
+  files.push(segments.join('/'))
+  templates.set(template, files)
 }
 assert.ok(templates.size > 0, 'No tracked templates found.')
 

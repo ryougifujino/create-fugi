@@ -7,7 +7,10 @@ import path from 'node:path';
 import readline from 'node:readline';
 import { setTimeout as delay } from 'node:timers/promises';
 import { promisify, stripVTControlCharacters } from 'node:util';
-import { chromium } from 'playwright';
+import { chromium, type Browser, type Page } from 'playwright';
+import type { RunnableTemplate, startTemplateDev } from './verify-template-dev.ts';
+
+type StartTemplateDev = typeof startTemplateDev;
 
 const execFileAsync = promisify(execFile);
 const startupTimeoutMs = 60_000;
@@ -28,7 +31,7 @@ const checks = new Map([
   ['mono-node', 'node'],
 ]);
 
-export async function verifyTemplates(templates, skipped, startTemplateDev, pnpmCommand) {
+export async function verifyTemplates(templates: RunnableTemplate[], skipped: string[], startTemplateDev: StartTemplateDev, pnpmCommand: string) {
   const run = new AbortController();
   const interrupt = () => {
     const error = new Error('Template dev verification interrupted.');
@@ -50,7 +53,7 @@ export async function verifyTemplates(templates, skipped, startTemplateDev, pnpm
         console.log(`  PASS ${detail}`);
       } catch (error) {
         run.signal.throwIfAborted();
-        console.error(`  FAIL ${error.message}`);
+        console.error(`  FAIL ${errorMessage(error)}`);
         failed += 1;
       }
     }
@@ -69,7 +72,7 @@ export async function verifyTemplates(templates, skipped, startTemplateDev, pnpm
   }
 }
 
-async function verifyTemplate(template, startTemplateDev, pnpmCommand, runSignal) {
+async function verifyTemplate(template: RunnableTemplate, startTemplateDev: StartTemplateDev, pnpmCommand: string, runSignal: AbortSignal) {
   const check = checks.get(template.name);
   if (check === undefined) {
     throw new Error('No automated check defined for this template.');
@@ -81,22 +84,22 @@ async function verifyTemplate(template, startTemplateDev, pnpmCommand, runSignal
   const apiOrigin = api ? `http://localhost:${port}` : null;
   const profile = electron ? await mkdtemp(path.join(tmpdir(), 'fugi-verify-electron-')) : null;
   const env = {
-    ...(api ? { PORT: String(port), VITE_API_BASE_URL: apiOrigin } : {}),
-    ...(electron ? { FUGI_VERIFY_ELECTRON_PROFILE: profile } : {}),
+    ...(apiOrigin !== null ? { PORT: String(port), VITE_API_BASE_URL: apiOrigin } : {}),
+    ...(profile !== null ? { FUGI_VERIFY_ELECTRON_PROFILE: profile } : {}),
   };
-  const logs = [];
+  const logs: string[] = [];
   const devFailure = new AbortController();
   const signal = AbortSignal.any([runSignal, devFailure.signal]);
   const startupSignal = AbortSignal.any([signal, AbortSignal.timeout(startupTimeoutMs)]);
-  const ready = {};
-  let dev;
+  const ready: { webUrl?: string; cdpUrl?: string; electronUrl?: string; api?: boolean; node?: boolean } = {};
+  let dev: ReturnType<StartTemplateDev> | undefined;
   let stopping = false;
-  let browser;
-  let page;
+  let browser: Browser | undefined;
+  let page: Page | undefined;
   let detail;
-  let failure;
+  let failure: unknown;
 
-  function appendLog(line, source) {
+  function appendLog(line: string, source = 'stdout') {
     line = stripVTControlCharacters(line).trim();
     if (line === '') return;
 
@@ -116,7 +119,7 @@ async function verifyTemplate(template, startTemplateDev, pnpmCommand, runSignal
 
   try {
     dev = startTemplateDev(template, env);
-    for (const [source, input] of [['stdout', dev.childProcess.stdout], ['stderr', dev.childProcess.stderr]]) {
+    for (const [source, input] of [['stdout', dev.childProcess.stdout], ['stderr', dev.childProcess.stderr]] as const) {
       readline.createInterface({ input }).on('line', (line) => appendLog(line, source));
     }
     void dev.exitPromise.then(
@@ -139,7 +142,7 @@ async function verifyTemplate(template, startTemplateDev, pnpmCommand, runSignal
       assert.match(stdout, /^Hello Node!$/m);
       detail = 'tsdown built and start printed Hello Node!';
     } else {
-      if (api) {
+      if (apiOrigin !== null) {
         await waitUntil(() => ready.api, 'API startup', startupSignal);
         await waitUntil(async () => {
           const response = await fetch(apiOrigin, {
@@ -152,6 +155,7 @@ async function verifyTemplate(template, startTemplateDev, pnpmCommand, runSignal
 
       if (electron) {
         await waitUntil(() => ready.cdpUrl && ready.electronUrl, 'Electron window', startupSignal);
+        assert.ok(ready.cdpUrl);
         browser = await chromium.connectOverCDP(ready.cdpUrl, { timeout: actionTimeoutMs });
         page = browser.contexts()[0]?.pages().find((candidate) => candidate.url() === ready.electronUrl);
         assert.ok(page, `No Electron window loaded ${ready.electronUrl}`);
@@ -161,6 +165,7 @@ async function verifyTemplate(template, startTemplateDev, pnpmCommand, runSignal
         browser = await chromium.launch({ timeout: actionTimeoutMs });
         page = await browser.newPage();
         watchPageErrors(page, devFailure);
+        assert.ok(ready.webUrl);
         const response = await page.goto(ready.webUrl, { timeout: actionTimeoutMs });
         assert.ok(response?.ok(), `Page navigation returned HTTP ${response?.status()}`);
       }
@@ -182,7 +187,9 @@ async function verifyTemplate(template, startTemplateDev, pnpmCommand, runSignal
     try {
       await dev?.stop({ appendLog });
     } catch (error) {
-      failure = failure ? new AggregateError([failure, error], `${failure.message}\n${error.message}`) : error;
+      failure = failure
+        ? new AggregateError([failure, error], `${errorMessage(failure)}\n${errorMessage(error)}`)
+        : error;
     }
     if (profile !== null) {
       await rm(profile, { recursive: true, force: true });
@@ -191,12 +198,16 @@ async function verifyTemplate(template, startTemplateDev, pnpmCommand, runSignal
 
   if (failure) {
     const logTail = logs.map((line) => `    ${line}`).join('\n');
-    throw new Error([failure.message, logTail].filter(Boolean).join('\n'), { cause: failure });
+    throw new Error([errorMessage(failure), logTail].filter(Boolean).join('\n'), { cause: failure });
   }
   return detail;
 }
 
-async function waitUntil(check, description, signal) {
+function errorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error);
+}
+
+async function waitUntil(check: () => boolean | string | undefined | Promise<boolean>, description: string, signal: AbortSignal) {
   try {
     for (;;) {
       signal.throwIfAborted();
@@ -211,8 +222,8 @@ async function waitUntil(check, description, signal) {
   }
 }
 
-function watchPageErrors(page, failure) {
-  page.on('pageerror', (error) => failure.abort(new Error(`Uncaught page exception: ${error.message}`)));
+function watchPageErrors(page: Page, failure: AbortController) {
+  page.on('pageerror', (error) => failure.abort(new Error(`Uncaught page exception: ${errorMessage(error)}`)));
   page.on('console', (message) => {
     if (message.type() === 'error') {
       failure.abort(new Error(`Page console error: ${message.text()}`));
@@ -221,13 +232,13 @@ function watchPageErrors(page, failure) {
   page.on('crash', () => failure.abort(new Error('Page crashed.')));
 }
 
-async function verifyCounter(page) {
+async function verifyCounter(page: Page) {
   await page.getByRole('button', { name: /^count is 0$/i }).click();
   await page.getByRole('button', { name: /^count is 1$/i }).waitFor();
   return 'counter changed from 0 to 1';
 }
 
-async function verifyApi(page) {
+async function verifyApi(page: Page) {
   const name = 'Template Smoke Test';
   await page.getByRole('textbox', { name: 'Name', exact: true }).fill(name);
   const [response] = await Promise.all([
@@ -244,13 +255,14 @@ async function verifyApi(page) {
 
 async function findFreePort() {
   const server = createServer();
-  await new Promise((resolve, reject) => {
+  await new Promise<void>((resolve, reject) => {
     server.once('error', reject);
     server.listen(0, resolve);
   });
-  const { port } = server.address();
-  await new Promise((resolve, reject) => {
+  const address = server.address();
+  await new Promise<void>((resolve, reject) => {
     server.close((error) => error ? reject(error) : resolve());
   });
-  return port;
+  assert.ok(address && typeof address === 'object');
+  return address.port;
 }

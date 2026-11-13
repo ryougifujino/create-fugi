@@ -52,7 +52,7 @@ jobs:
         id: release-package
         run: |
           tarball=$(npm pack --ignore-scripts --pack-destination "$RUNNER_TEMP" --quiet)
-          node scripts/verify-npm-package.js "$RUNNER_TEMP/$tarball"
+          node scripts/verify-npm-package.ts "$RUNNER_TEMP/$tarball"
           echo "tarball=$RUNNER_TEMP/$tarball" >> "$GITHUB_OUTPUT"
 
       - name: Upload release package

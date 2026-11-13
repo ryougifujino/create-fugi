@@ -1,12 +1,44 @@
-import { execFile, spawn } from 'node:child_process';
+import { execFile, spawn, type ChildProcess } from 'node:child_process';
 import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
-import readline from 'node:readline';
+import readline, { type Key } from 'node:readline';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import chalk from 'chalk';
+
+interface RunnableTemplate {
+  name: string;
+  absolutePath: string;
+  devCommand: string;
+}
+
+type TemplateStatus = 'pending' | 'running' | 'continued' | 'exited' | 'failed' | 'quit';
+type ReviewAction = 'abort' | 'continue' | 'quit';
+type LogSource = 'stdout' | 'stderr' | 'system';
+
+interface LogLine {
+  text: string;
+  source: LogSource;
+}
+
+interface DashboardTemplate extends RunnableTemplate {
+  status: TemplateStatus;
+  detail: string;
+}
+
+interface DashboardState {
+  templates: DashboardTemplate[];
+  currentIndex: number;
+  phase: string;
+  logs: LogLine[];
+}
+
+interface ChildExit {
+  code: number | null;
+  signal: NodeJS.Signals | null;
+}
 
 const scriptPath = fileURLToPath(import.meta.url);
 const scriptDir = path.dirname(scriptPath);
@@ -71,7 +103,7 @@ async function main() {
   }
 
   if (autoEnabled) {
-    const { verifyTemplates } = await import('./verify-template-dev-auto.js');
+    const { verifyTemplates } = await import('./verify-template-dev-auto.ts');
     await verifyTemplates(runnableTemplates, skippedTemplates, startTemplateDev, pnpmCommand);
     return;
   }
@@ -116,20 +148,20 @@ async function listTemplates() {
     .sort((left, right) => left.name.localeCompare(right.name));
 }
 
-async function readPackageJson(packageJsonPath) {
+async function readPackageJson(packageJsonPath: string): Promise<{ scripts?: unknown } | null> {
   const packageJsonContent = await readFile(packageJsonPath, 'utf-8');
 
   return JSON.parse(packageJsonContent);
 }
 
-function readDevCommand(packageJson) {
+function readDevCommand(packageJson: { scripts?: unknown } | null) {
   const scripts = packageJson?.scripts;
 
   if (scripts === null || typeof scripts !== 'object') {
     return null;
   }
 
-  return typeof scripts.dev === 'string' && scripts.dev.trim() !== ''
+  return 'dev' in scripts && typeof scripts.dev === 'string' && scripts.dev.trim() !== ''
     ? scripts.dev.trim()
     : null;
 }
@@ -157,8 +189,8 @@ function setupKeyboard() {
   };
 }
 
-function createDashboard(templates) {
-  const state = {
+function createDashboard(templates: RunnableTemplate[]) {
+  const state: DashboardState = {
     templates: templates.map((template) => ({
       ...template,
       status: 'pending',
@@ -168,7 +200,7 @@ function createDashboard(templates) {
     phase: 'Starting dev server…',
     logs: [],
   };
-  let renderTimer = null;
+  let renderTimer: NodeJS.Timeout | null = null;
   let frame = 0;
   let active = false;
 
@@ -215,24 +247,26 @@ function createDashboard(templates) {
       process.off('exit', restoreTerminal);
       restoreTerminal();
     },
-    setCurrent(index, phase = 'Starting dev server…') {
+    setCurrent(index: number, phase = 'Starting dev server…') {
       state.currentIndex = index;
       state.phase = phase;
-      state.templates[index].status = 'running';
-      state.templates[index].detail = 'pnpm dev';
+      const template = state.templates[index]!;
+      template.status = 'running';
+      template.detail = 'pnpm dev';
       state.logs = [];
       render();
     },
-    setPhase(phase) {
+    setPhase(phase: string) {
       state.phase = phase;
       render();
     },
-    setTemplateResult(index, status, detail) {
-      state.templates[index].status = status;
-      state.templates[index].detail = detail;
+    setTemplateResult(index: number, status: TemplateStatus, detail: string) {
+      const template = state.templates[index]!;
+      template.status = status;
+      template.detail = detail;
       render();
     },
-    appendLog(chunk, source = 'stdout') {
+    appendLog(chunk: string, source: LogSource = 'stdout') {
       const lines = sanitizeLogChunk(chunk);
 
       for (const line of lines) {
@@ -251,7 +285,7 @@ function createDashboard(templates) {
   };
 }
 
-function startTemplateDev(template, env = {}) {
+function startTemplateDev(template: RunnableTemplate, env: NodeJS.ProcessEnv = {}) {
   const childProcess = spawn(pnpmCommand, ['dev'], {
     cwd: template.absolutePath,
     env: {
@@ -272,14 +306,14 @@ function startTemplateDev(template, env = {}) {
   return {
     childProcess,
     exitPromise,
-    async stop(logger) {
+    async stop(logger: Pick<ReturnType<typeof createDashboard>, 'appendLog'>) {
       await processTracker?.stopTracking();
       return stopChildProcess(childProcess, exitPromise, logger, processTracker);
     },
   };
 }
 
-async function reviewTemplate(template, index, total, dashboard) {
+async function reviewTemplate(template: RunnableTemplate, index: number, total: number, dashboard: ReturnType<typeof createDashboard>) {
   dashboard.setCurrent(index);
   dashboard.appendLog(`$ pnpm dev  # ${relativeToRepo(template.absolutePath)}`, 'system');
 
@@ -299,8 +333,8 @@ async function reviewTemplate(template, index, total, dashboard) {
 
   try {
     firstResult = await Promise.race([
-      exitPromise.then((exit) => ({ type: 'exit', exit })),
-      actionWaiter.promise.then((action) => ({ type: 'action', action })),
+      exitPromise.then((exit) => ({ type: 'exit' as const, exit })),
+      actionWaiter.promise.then((action) => ({ type: 'action' as const, action })),
     ]);
   } finally {
     actionWaiter.cancel();
@@ -374,17 +408,17 @@ async function reviewTemplate(template, index, total, dashboard) {
 
 function createActionWaiter() {
   let active = true;
-  let onKeypress = null;
+  let onKeypress: ((str: string | undefined, key: Key | undefined) => void) | undefined;
 
-  const promise = new Promise((resolve) => {
-    onKeypress = (str, key) => {
+  const promise = new Promise<ReviewAction>((resolve) => {
+    const handleKeypress = (str: string | undefined, key: Key | undefined) => {
       if (!active) {
         return;
       }
 
       if (key?.ctrl === true && key.name === 'c') {
         active = false;
-        process.stdin.off('keypress', onKeypress);
+        process.stdin.off('keypress', handleKeypress);
         resolve('abort');
         return;
       }
@@ -399,19 +433,20 @@ function createActionWaiter() {
 
       if (normalizedKey === continueKey) {
         active = false;
-        process.stdin.off('keypress', onKeypress);
+        process.stdin.off('keypress', handleKeypress);
         resolve('continue');
         return;
       }
 
       if (normalizedKey === quitKey) {
         active = false;
-        process.stdin.off('keypress', onKeypress);
+        process.stdin.off('keypress', handleKeypress);
         resolve('quit');
       }
     };
 
-    process.stdin.on('keypress', onKeypress);
+    onKeypress = handleKeypress;
+    process.stdin.on('keypress', handleKeypress);
   });
 
   return {
@@ -419,15 +454,15 @@ function createActionWaiter() {
     cancel() {
       active = false;
 
-      if (onKeypress !== null) {
+      if (onKeypress !== undefined) {
         process.stdin.off('keypress', onKeypress);
       }
     },
   };
 }
 
-function waitForChildExit(childProcess) {
-  return new Promise((resolve, reject) => {
+function waitForChildExit(childProcess: ChildProcess) {
+  return new Promise<ChildExit>((resolve, reject) => {
     childProcess.once('error', reject);
     childProcess.once('exit', (code, signal) => {
       resolve({ code, signal });
@@ -435,9 +470,9 @@ function waitForChildExit(childProcess) {
   });
 }
 
-function trackProcessGroups(rootPid) {
+function trackProcessGroups(rootPid: number) {
   let groups = new Set([rootPid]);
-  let scanPromise;
+  let scanPromise: Promise<Set<number>> | undefined;
 
   function scan() {
     scanPromise ??= execFileAsync('ps', ['-ax', '-o', 'pid=,ppid=,pgid=,stat='])
@@ -468,8 +503,8 @@ function trackProcessGroups(rootPid) {
   };
 }
 
-function findRunningProcessGroups(processList, groups) {
-  const childrenByParent = new Map();
+function findRunningProcessGroups(processList: string, groups: ReadonlySet<number>) {
+  const childrenByParent = new Map<number, { pid: number; group: number }[]>();
   const pending = [];
   for (const line of processList.trim().split('\n')) {
     const [pidText, parentText, groupText, status] = line.trim().split(/\s+/);
@@ -490,7 +525,7 @@ function findRunningProcessGroups(processList, groups) {
   }
 
   const seen = new Set();
-  const runningGroups = new Set();
+  const runningGroups = new Set<number>();
   for (const { pid, group } of pending) {
     if (seen.has(pid)) {
       continue;
@@ -502,8 +537,8 @@ function findRunningProcessGroups(processList, groups) {
   return runningGroups;
 }
 
-async function stopChildProcess(childProcess, exitPromise, dashboard, processTracker) {
-  async function stop(signal, timeoutMs) {
+async function stopChildProcess(childProcess: ChildProcess, exitPromise: Promise<ChildExit>, dashboard: Pick<ReturnType<typeof createDashboard>, 'appendLog'>, processTracker: ReturnType<typeof trackProcessGroups> | null) {
+  async function stop(signal: NodeJS.Signals, timeoutMs: number) {
     if (processTracker !== null) {
       return stopProcessGroups(processTracker, signal, timeoutMs);
     }
@@ -527,7 +562,7 @@ async function stopChildProcess(childProcess, exitPromise, dashboard, processTra
   throw new Error('Failed to stop all dev processes after SIGINT and SIGKILL.');
 }
 
-async function stopProcessGroups(processTracker, signal, timeoutMs) {
+async function stopProcessGroups(processTracker: ReturnType<typeof trackProcessGroups>, signal: NodeJS.Signals, timeoutMs: number) {
   const signaled = new Set();
   const deadline = performance.now() + timeoutMs;
   do {
@@ -542,7 +577,7 @@ async function stopProcessGroups(processTracker, signal, timeoutMs) {
       try {
         process.kill(-group, signal);
       } catch (error) {
-        if (error?.code !== 'ESRCH') {
+        if (!(error instanceof Error && 'code' in error && error.code === 'ESRCH')) {
           throw error;
         }
       }
@@ -553,13 +588,13 @@ async function stopProcessGroups(processTracker, signal, timeoutMs) {
   return false;
 }
 
-async function raceWithTimeout(promise, timeoutMs) {
-  let timeoutId;
+async function raceWithTimeout<T>(promise: Promise<T>, timeoutMs: number) {
+  let timeoutId: NodeJS.Timeout | undefined;
 
   try {
     return await Promise.race([
       promise,
-      new Promise((resolve) => {
+      new Promise<null>((resolve) => {
         timeoutId = setTimeout(() => resolve(null), timeoutMs);
       }),
     ]);
@@ -568,7 +603,7 @@ async function raceWithTimeout(promise, timeoutMs) {
   }
 }
 
-function renderDashboard(state, { columns, rows, frame = 0 }) {
+function renderDashboard(state: DashboardState, { columns, rows, frame = 0 }: { columns: number; rows: number; frame?: number }) {
   const width = Math.max(24, Math.min(columns, 110));
   const height = Math.max(8, rows);
   const compact = width < 52 || height < 16;
@@ -578,9 +613,9 @@ function renderDashboard(state, { columns, rows, frame = 0 }) {
     : renderFullDashboard(state, width, height, frame);
 }
 
-function renderFullDashboard(state, width, height, frame) {
+function renderFullDashboard(state: DashboardState, width: number, height: number, frame: number) {
   const contentWidth = width - 4;
-  const currentTemplate = state.templates[state.currentIndex];
+  const currentTemplate = state.templates[state.currentIndex]!;
   const maximumStatusRows = Math.max(1, height - 14);
   const visibleTemplates = state.templates.slice(0, maximumStatusRows);
   const hiddenTemplateCount = state.templates.length - visibleTemplates.length;
@@ -647,8 +682,8 @@ function renderFullDashboard(state, width, height, frame) {
   return lines.slice(0, height).join('\n');
 }
 
-function renderCompactDashboard(state, width, height, frame) {
-  const currentTemplate = state.templates[state.currentIndex];
+function renderCompactDashboard(state: DashboardState, width: number, height: number, frame: number) {
+  const currentTemplate = state.templates[state.currentIndex]!;
   const completedCount = state.templates.filter((template) =>
     ['continued', 'exited', 'failed', 'quit'].includes(template.status),
   ).length;
@@ -686,7 +721,7 @@ function renderCompactDashboard(state, width, height, frame) {
   return lines.slice(0, height).join('\n');
 }
 
-function formatTemplateStatus(template, isCurrent, frame) {
+function formatTemplateStatus(template: DashboardTemplate, isCurrent: boolean, frame: number) {
   const statusPresentation = {
     pending: {
       icon: color.muted('○'),
@@ -718,7 +753,7 @@ function formatTemplateStatus(template, isCurrent, frame) {
   return `${statusPresentation.icon} ${padText(name, 28)} ${statusPresentation.label}`;
 }
 
-function formatPhase(phase, frame) {
+function formatPhase(phase: string, frame: number) {
   if (
     phase.startsWith('Starting') ||
     phase.startsWith('Stopping') ||
@@ -730,7 +765,7 @@ function formatPhase(phase, frame) {
   return phase;
 }
 
-function formatLogLine(log, width) {
+function formatLogLine(log: LogLine, width: number) {
   if (log.source === 'stderr') {
     return color.error(fitText(log.text, width));
   }
@@ -742,7 +777,7 @@ function formatLogLine(log, width) {
   return fitText(log.text, width);
 }
 
-function renderDryRun(runnableTemplates, skippedTemplates) {
+function renderDryRun(runnableTemplates: RunnableTemplate[], skippedTemplates: string[]) {
   const rows = runnableTemplates.map(
     (template, index) =>
       `${color.muted(`${String(index + 1).padStart(2)}.`)} ${color.active(
@@ -763,7 +798,7 @@ function renderDryRun(runnableTemplates, skippedTemplates) {
   );
 }
 
-function renderSummary(reviewedTemplates, skippedTemplates) {
+function renderSummary(reviewedTemplates: Awaited<ReturnType<typeof reviewTemplate>>[], skippedTemplates: string[]) {
   const rows = reviewedTemplates.map((item) => {
     const successful = item.status === 'continued' || item.status === 'exited';
     const icon = successful ? color.success('✓') : color.warning('■');
@@ -782,7 +817,7 @@ function renderSummary(reviewedTemplates, skippedTemplates) {
   renderStaticPanel('Template Dev Review · Summary', rows);
 }
 
-function renderStaticPanel(title, rows) {
+function renderStaticPanel(title: string, rows: string[]) {
   const availableWidth = Math.max(36, (process.stdout.columns ?? 80) - 1);
   const desiredWidth = Math.max(
     48,
@@ -798,7 +833,7 @@ function renderStaticPanel(title, rows) {
   process.stdout.write(`${bottomBorder(width)}\n`);
 }
 
-function formatProgressBar(completed, total, width) {
+function formatProgressBar(completed: number, total: number, width: number) {
   const safeTotal = Math.max(total, 1);
   const filledWidth = Math.round((completed / safeTotal) * width);
   const emptyWidth = Math.max(0, width - filledWidth);
@@ -806,14 +841,14 @@ function formatProgressBar(completed, total, width) {
   return `${color.accent('━'.repeat(filledWidth))}${color.muted('─'.repeat(emptyWidth))}`;
 }
 
-function topBorder(title, width) {
+function topBorder(title: string, width: number) {
   const fittedTitle = fitText(` ${title} `, width - 4);
   const ruleWidth = Math.max(0, width - visibleLength(fittedTitle) - 2);
 
   return color.accent(`╭${fittedTitle}${'─'.repeat(ruleWidth)}╮`);
 }
 
-function divider(title, width) {
+function divider(title: string, width: number) {
   const fittedTitle = fitText(` ${title} `, width - 4);
   const ruleWidth = Math.max(0, width - visibleLength(fittedTitle) - 2);
 
@@ -822,21 +857,21 @@ function divider(title, width) {
   )}`;
 }
 
-function bottomBorder(width) {
+function bottomBorder(width: number) {
   return color.accent(`╰${'─'.repeat(Math.max(0, width - 2))}╯`);
 }
 
-function boxRow(content, width) {
+function boxRow(content: string, width: number) {
   return `${color.accent('│')} ${padText(content, Math.max(0, width - 4))} ${color.accent('│')}`;
 }
 
-function padText(text, width) {
+function padText(text: string, width: number) {
   const fittedText = fitText(text, width);
 
   return `${fittedText}${' '.repeat(Math.max(0, width - visibleLength(fittedText)))}`;
 }
 
-function fitText(text, width) {
+function fitText(text: string, width: number) {
   if (width <= 0) {
     return '';
   }
@@ -848,11 +883,11 @@ function fitText(text, width) {
   return `${stripAnsi(text).slice(0, Math.max(0, width - 1))}…`;
 }
 
-function visibleLength(text) {
+function visibleLength(text: string) {
   return [...stripAnsi(text)].length;
 }
 
-function sanitizeLogChunk(chunk) {
+function sanitizeLogChunk(chunk: string) {
   return stripAnsi(chunk)
     .replaceAll('\r\n', '\n')
     .replaceAll('\r', '\n')
@@ -864,15 +899,15 @@ function sanitizeLogChunk(chunk) {
     .filter((line) => line !== '');
 }
 
-function stripAnsi(text) {
+function stripAnsi(text: string) {
   return String(text).replace(ansiPattern, '');
 }
 
-function spinner(frame) {
-  return ['◐', '◓', '◑', '◒'][frame % 4];
+function spinner(frame: number) {
+  return ['◐', '◓', '◑', '◒'][frame % 4]!;
 }
 
-function formatExit(exit) {
+function formatExit(exit: ChildExit) {
   if (exit.signal !== null) {
     return `with signal ${exit.signal}`;
   }
@@ -880,7 +915,7 @@ function formatExit(exit) {
   return `with exit code ${exit.code ?? 0}`;
 }
 
-function relativeToRepo(targetPath) {
+function relativeToRepo(targetPath: string) {
   return path.relative(repoRoot, targetPath) || '.';
 }
 
@@ -911,4 +946,5 @@ if (isDirectRun) {
   }
 }
 
+export type { RunnableTemplate, startTemplateDev };
 export { findRunningProcessGroups, renderDashboard, sanitizeLogChunk, stripAnsi };

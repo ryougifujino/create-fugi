@@ -5,7 +5,7 @@ import {
   renderDashboard,
   sanitizeLogChunk,
   stripAnsi,
-} from '../scripts/verify-template-dev.js';
+} from '../scripts/verify-template-dev.ts';
 
 const dashboardState = {
   templates: [

@@ -1,11 +1,47 @@
 import { spawn } from 'node:child_process';
-import { createWriteStream } from 'node:fs';
+import { createWriteStream, type WriteStream } from 'node:fs';
 import { glob, readdir, readFile, rm } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import chalk from 'chalk';
 import ora from 'ora';
+
+type ScriptLabels = Map<string, Set<string>>;
+
+interface ValidationTarget {
+  cwd: string;
+  label: string;
+  availableScripts: string[];
+  scriptCommands: Record<string, string>;
+  validationScripts: string[];
+  skippedValidationScripts: string[];
+}
+
+interface CommandResult {
+  ok: boolean;
+  durationMs: number;
+  warnings: string[];
+  error?: Error;
+  code?: number | null;
+  signal?: NodeJS.Signals | null;
+}
+
+interface RunSummary {
+  totalTemplates: number;
+  updateSucceeded: number;
+  updateFailed: string[];
+  totalValidationTargets: number;
+  totalValidationTasksSelected: number;
+  totalValidationTasksExecuted: number;
+  validationSucceeded: number;
+  validationFailed: string[];
+  validationSkipped: string[];
+  discoveredScripts: ScriptLabels;
+  selectedValidationScripts: ScriptLabels;
+  executedValidationScripts: ScriptLabels;
+  warningsByTemplate: Map<string, Set<string>>;
+}
 
 const scriptPath = fileURLToPath(import.meta.url);
 const scriptDir = path.dirname(scriptPath);
@@ -17,7 +53,7 @@ const pnpmReporterArgs = ['--reporter=append-only'];
 const verboseConsoleOutput = process.env.UP_TEMPLATE_DEPS_VERBOSE === '1';
 const spinnerEnabled = !verboseConsoleOutput && process.stderr.isTTY;
 const tuiEnabled = spinnerEnabled;
-const pnpmStoreDirCache = new Map();
+const pnpmStoreDirCache = new Map<string, string | null>();
 const depsValidationScriptWhitelist = [
   'typecheck',
   'lint',
@@ -38,9 +74,9 @@ const color = {
   muted: chalk.gray,
 };
 
-let logStream = null;
+let logStream: WriteStream | null = null;
 
-function writeConsole(chunk, useStderr = false) {
+function writeConsole(chunk: string, useStderr = false) {
   if (useStderr) {
     process.stderr.write(chunk);
   } else {
@@ -48,7 +84,7 @@ function writeConsole(chunk, useStderr = false) {
   }
 }
 
-function writeLog(chunk) {
+function writeLog(chunk: string) {
   logStream ??= createWriteStream(logFilePath, { flags: 'w' });
   logStream.write(chunk);
 }
@@ -66,35 +102,35 @@ function logFileLine(message = '') {
   writeLog(`${message}\n`);
 }
 
-function logSectionLine(title) {
+function logSectionLine(title: string) {
   logLine(title, false, color.heading(title));
 }
 
-function logSubsectionLine(title) {
+function logSubsectionLine(title: string) {
   logLine(title, false, color.subheading(title));
 }
 
-function logInfoLine(message) {
+function logInfoLine(message: string) {
   logLine(message, false, color.info(message));
 }
 
-function logMutedLine(message) {
+function logMutedLine(message: string) {
   logLine(message, false, color.muted(message));
 }
 
-function logWarningLine(message, useStderr = false) {
+function logWarningLine(message: string, useStderr = false) {
   logLine(message, useStderr, color.warning(message));
 }
 
-function logErrorLine(message) {
+function logErrorLine(message: string) {
   logLine(message, true, color.error(message));
 }
 
-function logSuccessLine(message) {
+function logSuccessLine(message: string) {
   logLine(message, false, color.success(message));
 }
 
-function logBufferedOutputToConsole(output, useStderr = false) {
+function logBufferedOutputToConsole(output: string, useStderr = false) {
   if (output === '') {
     return;
   }
@@ -110,11 +146,11 @@ function writeTuiLine(message = '') {
   writeConsole(`${message}\n`, true);
 }
 
-function visibleLength(message) {
+function visibleLength(message: string) {
   return stripAnsi(message).length;
 }
 
-function fitTuiText(message, width) {
+function fitTuiText(message: string, width: number) {
   if (visibleLength(message) <= width) {
     return message;
   }
@@ -122,12 +158,12 @@ function fitTuiText(message, width) {
   return `${stripAnsi(message).slice(0, Math.max(0, width - 1))}…`;
 }
 
-function padTuiText(message, width) {
+function padTuiText(message: string, width: number) {
   const fittedMessage = fitTuiText(message, width);
   return `${fittedMessage}${' '.repeat(Math.max(0, width - visibleLength(fittedMessage)))}`;
 }
 
-function renderTuiPanel(title, rows, borderColor = color.info) {
+function renderTuiPanel(title: string, rows: string[], borderColor = color.info) {
   const availableWidth = Math.max(36, (process.stderr.columns ?? 80) - 4);
   const desiredWidth = Math.max(
     visibleLength(title) + 1,
@@ -147,11 +183,11 @@ function renderTuiPanel(title, rows, borderColor = color.info) {
   writeTuiLine(borderColor(`╰${'─'.repeat(contentWidth + 2)}╯`));
 }
 
-function pluralize(count, singular, plural = `${singular}s`) {
+function pluralize(count: number, singular: string, plural = `${singular}s`) {
   return `${count} ${count === 1 ? singular : plural}`;
 }
 
-function renderTuiHeader(templateCount) {
+function renderTuiHeader(templateCount: number) {
   writeTuiLine();
   renderTuiPanel(
     'up-template-deps',
@@ -170,7 +206,7 @@ function renderTuiTemplateHeader({
   templateLabel,
   validationTargetCount,
   validationTaskCount,
-}) {
+}: { index: number; total: number; templateLabel: string; validationTargetCount: number; validationTaskCount: number }) {
   writeTuiLine();
   writeTuiLine(
     `${color.info('◆')} ${chalk.bold(templateLabel)} ${color.muted(`${index}/${total}`)}`,
@@ -189,7 +225,7 @@ function renderTuiTemplateResult({
   validationTotal,
   validationFailed,
   warningCount,
-}) {
+}: { updateSucceeded: boolean; validationSucceeded: number; validationTotal: number; validationFailed: number; warningCount: number }) {
   const status =
     updateSucceeded && validationFailed === 0
       ? warningCount > 0
@@ -214,13 +250,13 @@ function renderTuiTemplateResult({
   );
 }
 
-function renderTuiWarnings(warnings) {
+function renderTuiWarnings(warnings: Iterable<string>) {
   for (const warning of warnings) {
     writeTuiLine(`${color.warning('  ⚠')} ${color.warning(warning)}`);
   }
 }
 
-function formatTuiTaskTitle(title, cwd) {
+function formatTuiTaskTitle(title: string, cwd: string) {
   if (title.startsWith('[update] ')) {
     return `Update dependencies · ${cwd}`;
   }
@@ -232,7 +268,7 @@ function formatTuiTaskTitle(title, cwd) {
   return `${title} · ${cwd}`;
 }
 
-function renderTuiRunSummary({ summary, duration, hasFailure }) {
+function renderTuiRunSummary({ summary, duration, hasFailure }: { summary: RunSummary; duration: string; hasFailure: boolean }) {
   const totalWarnings = [...summary.warningsByTemplate.values()].reduce(
     (count, warnings) => count + warnings.size,
     0,
@@ -267,11 +303,11 @@ function renderTuiRunSummary({ summary, duration, hasFailure }) {
   );
 }
 
-function formatDuration(durationMs) {
+function formatDuration(durationMs: number) {
   return `${(durationMs / 1000).toFixed(1)}s`;
 }
 
-function relativeToRepo(targetPath) {
+function relativeToRepo(targetPath: string) {
   return path.relative(repoRoot, targetPath) || '.';
 }
 
@@ -284,11 +320,11 @@ async function listTemplateDirs() {
     .sort((left, right) => left.localeCompare(right));
 }
 
-async function removeTemplateLockfile(templateDir) {
+async function removeTemplateLockfile(templateDir: string) {
   await rm(path.join(templateDir, 'pnpm-lock.yaml'), { force: true });
 }
 
-function parseWorkspacePackagePatterns(workspaceContent) {
+function parseWorkspacePackagePatterns(workspaceContent: string) {
   const patterns = [];
   let inPackagesSection = false;
 
@@ -316,7 +352,7 @@ function parseWorkspacePackagePatterns(workspaceContent) {
       continue;
     }
 
-    let pattern = match[1].replace(/\s+#.*$/, '').trim();
+    let pattern = match[1]!.replace(/\s+#.*$/, '').trim();
 
     if (
       (pattern.startsWith("'") && pattern.endsWith("'")) ||
@@ -333,7 +369,7 @@ function parseWorkspacePackagePatterns(workspaceContent) {
   return patterns;
 }
 
-function readScriptCommands(packageJson) {
+function readScriptCommands(packageJson: { scripts?: unknown } | null | undefined) {
   const packageScripts = packageJson?.scripts;
 
   if (packageScripts === null || typeof packageScripts !== 'object') {
@@ -342,22 +378,22 @@ function readScriptCommands(packageJson) {
 
   return Object.fromEntries(
     Object.entries(packageScripts)
-      .filter(([, command]) => typeof command === 'string' && command.trim() !== '')
+      .filter((entry): entry is [string, string] => typeof entry[1] === 'string' && entry[1].trim() !== '')
       .map(([scriptName, command]) => [scriptName, command.trim()]),
   );
 }
 
-function readAvailableScripts(scriptCommands) {
+function readAvailableScripts(scriptCommands: Record<string, string>) {
   return Object.keys(scriptCommands).sort((left, right) => left.localeCompare(right));
 }
 
-function selectValidationScripts(availableScripts) {
+function selectValidationScripts(availableScripts: string[]) {
   const availableScriptSet = new Set(availableScripts);
 
   return depsValidationScriptWhitelist.filter((scriptName) => availableScriptSet.has(scriptName));
 }
 
-function addScriptLabels(scriptMap, scriptNames, label) {
+function addScriptLabels(scriptMap: ScriptLabels, scriptNames: string[], label: string) {
   for (const scriptName of scriptNames) {
     const labels = scriptMap.get(scriptName);
 
@@ -370,48 +406,48 @@ function addScriptLabels(scriptMap, scriptNames, label) {
   }
 }
 
-function addWarnings(warningSet, warnings) {
+function addWarnings(warningSet: Set<string>, warnings: Iterable<string>) {
   for (const warning of warnings) {
     warningSet.add(warning);
   }
 }
 
-function sortScriptMapEntries(scriptMap) {
+function sortScriptMapEntries(scriptMap: ScriptLabels) {
   return [...scriptMap.entries()].sort((left, right) => left[0].localeCompare(right[0]));
 }
 
-function formatList(items) {
+function formatList(items: string[]) {
   return items.length === 0 ? 'none' : items.join(', ');
 }
 
-function escapeRegExp(value) {
+function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-function stripAnsi(value) {
+function stripAnsi(value: string) {
   return value.replace(/\u001B\[[0-9;]*m/g, '');
 }
 
-function normalizeWarningLine(line) {
+function normalizeWarningLine(line: string) {
   return stripAnsi(line).replace(/\s+/g, ' ').trim();
 }
 
-function normalizePackageWarningLine(line) {
+function normalizePackageWarningLine(line: string) {
   return normalizeWarningLine(line).replace(/^[.\s│└├─┬]+/, '').trim();
 }
 
-function stripWarnPrefix(line) {
+function stripWarnPrefix(line: string) {
   return line.replace(/^WARN\s*/i, '').trim();
 }
 
-function extractCommandWarnings(output) {
-  const warnings = [];
-  const seenWarnings = new Set();
+function extractCommandWarnings(output: string) {
+  const warnings: string[] = [];
+  const seenWarnings = new Set<string>();
   const lines = output.split(/\r?\n/);
   let previousNonEmptyLine = '';
   let sawPeerDependencyBanner = false;
 
-  function pushWarning(message) {
+  function pushWarning(message: string) {
     if (message === '' || seenWarnings.has(message)) {
       return;
     }
@@ -451,7 +487,7 @@ function extractCommandWarnings(output) {
   return warnings;
 }
 
-function isRecursivePnpmScript(command, scriptName) {
+function isRecursivePnpmScript(command: string | undefined, scriptName: string) {
   if (typeof command !== 'string') {
     return false;
   }
@@ -464,12 +500,12 @@ function isRecursivePnpmScript(command, scriptName) {
   return scriptPattern.test(command);
 }
 
-function deduplicateValidationTargets(targets) {
-  if (targets.length <= 1) {
+function deduplicateValidationTargets(targets: ValidationTarget[]) {
+  const [rootTarget, ...childTargets] = targets;
+  if (rootTarget === undefined || childTargets.length === 0) {
     return targets;
   }
 
-  const [rootTarget, ...childTargets] = targets;
   const recursiveRootScripts = new Set(
     rootTarget.validationScripts.filter((scriptName) =>
       isRecursivePnpmScript(rootTarget.scriptCommands[scriptName], scriptName),
@@ -502,7 +538,7 @@ function deduplicateValidationTargets(targets) {
   ];
 }
 
-function formatTargetValidationPlan(target) {
+function formatTargetValidationPlan(target: ValidationTarget) {
   const planParts = [];
   planParts.push(`selected: ${formatList(target.validationScripts)}`);
 
@@ -515,7 +551,7 @@ function formatTargetValidationPlan(target) {
   return `${target.label} -> ${planParts.join(' | ')}`;
 }
 
-async function readPackageJsonIfExists(packageJsonPath) {
+async function readPackageJsonIfExists(packageJsonPath: string): Promise<{ name?: string; scripts?: unknown } | null> {
   try {
     const raw = await readFile(packageJsonPath, 'utf8');
     return JSON.parse(raw);
@@ -528,13 +564,13 @@ async function readPackageJsonIfExists(packageJsonPath) {
   }
 }
 
-function parseStoreDirFromModulesYaml(content) {
+function parseStoreDirFromModulesYaml(content: string) {
   const match = content.match(/^storeDir:\s*(.+)$/m);
   if (!match) {
     return null;
   }
 
-  const value = match[1].trim();
+  const value = match[1]!.trim();
   if (
     (value.startsWith("'") && value.endsWith("'")) ||
     (value.startsWith('"') && value.endsWith('"'))
@@ -545,7 +581,7 @@ function parseStoreDirFromModulesYaml(content) {
   return value;
 }
 
-async function resolvePnpmStoreDir(startDir) {
+async function resolvePnpmStoreDir(startDir: string) {
   const cachedValue = pnpmStoreDirCache.get(startDir);
   if (cachedValue !== undefined) {
     return cachedValue;
@@ -583,7 +619,7 @@ async function resolvePnpmStoreDir(startDir) {
   return null;
 }
 
-async function readValidationTargetForDir(targetDir) {
+async function readValidationTargetForDir(targetDir: string): Promise<ValidationTarget | null> {
   const packageJsonPath = path.join(targetDir, 'package.json');
   const packageJson = await readPackageJsonIfExists(packageJsonPath);
 
@@ -606,14 +642,14 @@ async function readValidationTargetForDir(targetDir) {
   };
 }
 
-async function readValidationPlan(templateDir) {
+async function readValidationPlan(templateDir: string) {
   const workspacePath = path.join(templateDir, 'pnpm-workspace.yaml');
   const rootTarget = await readValidationTargetForDir(templateDir);
 
   try {
     const rawWorkspaceContent = await readFile(workspacePath, 'utf8');
     const packagePatterns = parseWorkspacePackagePatterns(rawWorkspaceContent);
-    const matchedDirs = new Set();
+    const matchedDirs = new Set<string>();
 
     for (const packagePattern of packagePatterns) {
       for await (const match of glob(packagePattern, { cwd: templateDir })) {
@@ -659,7 +695,7 @@ async function readValidationPlan(templateDir) {
   };
 }
 
-async function runCommand({ cwd, title, args }) {
+async function runCommand({ cwd, title, args }: { cwd: string; title: string; args: string[] }) {
   const storeDir = await resolvePnpmStoreDir(cwd);
   const commandEnv = storeDir
     ? {
@@ -668,7 +704,7 @@ async function runCommand({ cwd, title, args }) {
       }
     : process.env;
 
-  return new Promise((resolve) => {
+  return new Promise<CommandResult>((resolve) => {
     const commandArgs = [...pnpmReporterArgs, ...args];
 
     logFileLine();
@@ -697,7 +733,7 @@ async function runCommand({ cwd, title, args }) {
     }
 
     const startedAt = Date.now();
-    const outputEvents = [];
+    const outputEvents: string[] = [];
     const child = spawn(pnpmCommand, commandArgs, {
       cwd,
       env: commandEnv,
@@ -813,12 +849,13 @@ async function runCommand({ cwd, title, args }) {
 }
 
 async function closeLogStream() {
-  if (logStream === null) {
+  const stream = logStream;
+  if (stream === null) {
     return;
   }
 
-  await new Promise((resolve, reject) => {
-    logStream.end((error) => {
+  await new Promise<void>((resolve, reject) => {
+    stream.end((error?: Error | null) => {
       if (error) {
         reject(error);
         return;
@@ -832,7 +869,7 @@ async function closeLogStream() {
 async function main() {
   const startedAt = Date.now();
   const templateDirs = await listTemplateDirs();
-  const summary = {
+  const summary: RunSummary = {
     totalTemplates: templateDirs.length,
     updateSucceeded: 0,
     updateFailed: [],
@@ -873,7 +910,7 @@ async function main() {
     const templateLabel = relativeToRepo(templateDir);
     const templateName = path.basename(templateDir);
     const validationPlan = await readValidationPlan(templateDir);
-    const templateWarnings = new Set();
+    const templateWarnings = new Set<string>();
     let templateValidationSucceeded = 0;
     let templateValidationFailed = 0;
 
