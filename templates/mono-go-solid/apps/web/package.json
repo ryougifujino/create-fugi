@@ -10,14 +10,15 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@solidjs/web": "catalog:",
     "solid-js": "catalog:"
   },
   "devDependencies": {
+    "@solidjs/vite-plugin": "catalog:",
     "@tailwindcss/vite": "^4.3.5",
     "@types/node": "catalog:",
     "tailwindcss": "^4.3.5",
     "typescript": "catalog:",
-    "vite": "catalog:",
-    "vite-plugin-solid": "catalog:"
+    "vite": "catalog:"
   }
 }
