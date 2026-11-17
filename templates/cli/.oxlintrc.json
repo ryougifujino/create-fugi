@@ -3,7 +3,6 @@
   "categories": {
     "correctness": "error"
   },
-  "plugins": ["typescript", "unicorn", "oxc"],
   "rules": {
     "no-array-constructor": "error",
     "no-case-declarations": "error",
