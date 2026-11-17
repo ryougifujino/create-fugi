@@ -16,6 +16,7 @@ export interface TemplateEntry {
 // Kept in the CLI on purpose: a description inside a template's package.json
 // would be copied into every scaffolded project.
 const TEMPLATE_DESCRIPTIONS: Record<string, string> = {
+  cli: 'Single-package Node.js command-line tool (TypeScript)',
   react: 'Single-package React frontend (Vite)',
   'mono-node': 'Monorepo with a Node.js app',
   'mono-go-react': 'Monorepo with a React frontend and a Go backend',

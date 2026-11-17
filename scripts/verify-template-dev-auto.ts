@@ -73,6 +73,16 @@ export async function verifyTemplates(templates: RunnableTemplate[], skipped: st
 }
 
 async function verifyTemplate(template: RunnableTemplate, startTemplateDev: StartTemplateDev, pnpmCommand: string, runSignal: AbortSignal) {
+  if (template.name === 'cli') {
+    const { stdout } = await execFileAsync(pnpmCommand, ['--silent', 'dev', 'hello', 'Ada'], {
+      cwd: template.absolutePath,
+      signal: runSignal,
+      timeout: actionTimeoutMs,
+    });
+    assert.equal(stdout.trim(), 'Hello, Ada!');
+    return 'CLI printed Hello, Ada!';
+  }
+
   const check = checks.get(template.name);
   if (check === undefined) {
     throw new Error('No automated check defined for this template.');

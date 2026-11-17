@@ -12,6 +12,7 @@
 
 示例：
 
+- `cli`：单包 Node.js 命令行工具模板（TypeScript）。
 - `react`：单包 React 前端模板。
 - `mono-go-react`：React 前端与 Go 后端的 monorepo，可将前端嵌入 Go 二进制文件。
 - `mono-go-solid`：Solid 前端与 Go 后端的 monorepo，可将前端嵌入 Go 二进制文件。

@@ -1,0 +1,46 @@
+{
+  "name": "cli",
+  "version": "0.0.0",
+  "bin": "./dist/index.js",
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "scripts": {
+    "dev": "node src/index.ts",
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test test/*.test.ts",
+    "lint": "oxlint",
+    "lint:fix": "oxlint --fix",
+    "fmt": "oxfmt",
+    "fmt:check": "oxfmt --check",
+    "lint-staged": "lint-staged",
+    "commitlint": "commitlint",
+    "prepare": "lefthook install",
+    "prepack": "tsc"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^21.2.4",
+    "@commitlint/config-conventional": "^21.2.4",
+    "@types/node": "^24.10.12",
+    "lefthook": "^2.2.2",
+    "lint-staged": "^17.6.0",
+    "oxfmt": "^0.77.0",
+    "oxlint": "^1.92.0",
+    "typescript": "~7.0.2"
+  },
+  "lint-staged": {
+    "*.{js,cjs,mjs,ts}": [
+      "oxlint --fix",
+      "oxfmt"
+    ],
+    "*.{json,md,yml,yaml}": [
+      "oxfmt"
+    ]
+  },
+  "engines": {
+    "node": ">=26.0.0"
+  },
+  "packageManager": "pnpm@12.18.0"
+}

@@ -12,6 +12,7 @@
 
 例:
 
+- `cli`: シングルパッケージの Node.js CLI テンプレート（TypeScript）。
 - `react`: シングルパッケージの React フロントエンドテンプレート。
 - `mono-go-react`: React フロントエンドと Go バックエンドの monorepo。フロントエンドは Go バイナリに埋め込み可能。
 - `mono-go-solid`: Solid フロントエンドと Go バックエンドの monorepo。フロントエンドは Go バイナリに埋め込み可能。
