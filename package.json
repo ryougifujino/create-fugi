@@ -73,7 +73,8 @@
       "oxlint --fix",
       "oxfmt"
     ],
-    "src/**/*.{json,md,html,yml,yaml}": [
+    "*.md": "oxfmt",
+    "src/**/*.{json,html,yml,yaml}": [
       "oxfmt"
     ]
   },
