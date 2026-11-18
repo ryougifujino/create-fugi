@@ -2,8 +2,14 @@ import { access, stat } from 'node:fs/promises'
 import { createServer } from 'node:net'
 import { setTimeout as delay } from 'node:timers/promises'
 
-async function canUsePort(host, port) {
-  return new Promise((resolve) => {
+interface PortSearchOptions {
+  host: string
+  startPort: number
+  searchLimit: number
+}
+
+async function canUsePort(host: string, port: number) {
+  return new Promise<boolean>((resolve) => {
     const server = createServer()
 
     server.once('error', () => {
@@ -18,7 +24,7 @@ async function canUsePort(host, port) {
   })
 }
 
-export async function findAvailablePort({ host, startPort, searchLimit }) {
+export async function findAvailablePort({ host, startPort, searchLimit }: PortSearchOptions) {
   for (let port = startPort; port < startPort + searchLimit; port += 1) {
     if (await canUsePort(host, port)) {
       return port
@@ -28,7 +34,7 @@ export async function findAvailablePort({ host, startPort, searchLimit }) {
   throw new Error(`Unable to find a free port between ${startPort} and ${startPort + searchLimit - 1}.`)
 }
 
-export async function waitForDevServer(url, timeoutMs) {
+export async function waitForDevServer(url: string, timeoutMs: number) {
   const deadline = Date.now() + timeoutMs
 
   while (Date.now() < deadline) {
@@ -43,7 +49,7 @@ export async function waitForDevServer(url, timeoutMs) {
   throw new Error(`Timed out waiting for the renderer dev server at ${url}.`)
 }
 
-export async function waitForFile(filePath, timeoutMs) {
+export async function waitForFile(filePath: string, timeoutMs: number) {
   const deadline = Date.now() + timeoutMs
 
   while (Date.now() < deadline) {

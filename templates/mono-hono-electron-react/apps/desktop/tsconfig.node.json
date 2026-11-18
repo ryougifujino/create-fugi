@@ -17,5 +17,5 @@
     "erasableSyntaxOnly": true,
     "noUncheckedSideEffectImports": true
   },
-  "include": ["main.ts", "tsdown.config.ts", "vite.config.ts"]
+  "include": ["main.ts", "tsdown.config.ts", "vite.config.ts", "scripts/dev/**/*.ts"]
 }

@@ -1,16 +1,24 @@
-import { spawn } from 'node:child_process'
+import { spawn, type ChildProcess } from 'node:child_process'
 import process from 'node:process'
 import { setTimeout as delay } from 'node:timers/promises'
 
+export type UnexpectedExitHandler = (message: string, cause: Error | number) => void
+
+interface ProcessSupervisorOptions {
+  cwd: string
+  onUnexpectedExit: UnexpectedExitHandler
+  pnpmCommand: string
+}
+
 export class ProcessSupervisor {
-  #childProcesses = new Set()
+  #childProcesses = new Set<ChildProcess>()
   #cwd
   #onUnexpectedExit
   #pnpmCommand
   #shuttingDown = false
-  #stopPromise = null
+  #stopPromise: Promise<void> | null = null
 
-  constructor({ cwd, onUnexpectedExit, pnpmCommand }) {
+  constructor({ cwd, onUnexpectedExit, pnpmCommand }: ProcessSupervisorOptions) {
     this.#cwd = cwd
     this.#onUnexpectedExit = onUnexpectedExit
     this.#pnpmCommand = pnpmCommand
@@ -20,16 +28,16 @@ export class ProcessSupervisor {
     return this.#shuttingDown
   }
 
-  register(childProcess) {
+  register(childProcess: ChildProcess) {
     this.#childProcesses.add(childProcess)
     return childProcess
   }
 
-  unregister(childProcess) {
+  unregister(childProcess: ChildProcess) {
     this.#childProcesses.delete(childProcess)
   }
 
-  spawnPnpmCommand(args, name, env = {}) {
+  spawnPnpmCommand(args: string[], name: string, env: NodeJS.ProcessEnv = {}) {
     const childProcess = spawn(this.#pnpmCommand, args, {
       cwd: this.#cwd,
       stdio: 'inherit',
@@ -67,7 +75,7 @@ export class ProcessSupervisor {
     return this.#stopPromise
   }
 
-  #attachLifecycle(childProcess, name) {
+  #attachLifecycle(childProcess: ChildProcess, name: string) {
     childProcess.on('error', (error) => {
       this.#onUnexpectedExit(`Failed to start ${name}.`, error)
     })

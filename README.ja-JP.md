@@ -53,6 +53,10 @@ bun create fugi
 
 その後、対話プロンプトでテンプレートとプロジェクト名を選択します。
 
+## Electron テンプレートのメンテナンス
+
+共有の開発スクリプトは [`template-assets/electron-dev/`](./template-assets/electron-dev/) で管理します。テンプレートの `apps/desktop/package.json` で `scripts.dev` を `node ./scripts/dev/index.ts` に設定すると、ビルド時に npm パッケージ用の共有ファイルがそのテンプレートの `apps/desktop/scripts/dev/` にコピーされます。このリポジトリ内のテンプレートで直接 `pnpm dev` を実行する前に、ルートで `pnpm build` を実行してください。`pnpm verify-template-dev` も起動前にスクリプトを同期します。
+
 ## License
 
 MIT

@@ -9,6 +9,7 @@ gitignores
 *.local
 .pnpm-store
 templates/*/pnpm-lock.yaml
+templates/*/apps/desktop/scripts/dev/
 ./lefthook.yml
 
 # Editor directories and files

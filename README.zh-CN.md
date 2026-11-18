@@ -53,6 +53,10 @@ bun create fugi
 
 然后按照交互提示选择模板和项目名。
 
+## 维护 Electron 模板
+
+共享开发脚本位于 [`template-assets/electron-dev/`](./template-assets/electron-dev/)。模板的 `apps/desktop/package.json` 将 `scripts.dev` 设为 `node ./scripts/dev/index.ts` 后，构建就会把共享文件复制到该模板的 `apps/desktop/scripts/dev/`，供 npm 打包使用。直接在仓库里的模板运行 `pnpm dev` 前，先在仓库根目录执行 `pnpm build`。`pnpm verify-template-dev` 也会在启动模板前同步脚本。
+
 ## License
 
 MIT

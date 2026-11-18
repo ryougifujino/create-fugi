@@ -1,20 +1,33 @@
-import { spawn } from 'node:child_process'
+import { spawn, type ChildProcess } from 'node:child_process'
 import { unwatchFile, watchFile } from 'node:fs'
 import process from 'node:process'
+import type { ProcessSupervisor, UnexpectedExitHandler } from './process-supervisor.ts'
+
+interface ElectronControllerOptions {
+  appDir: string
+  electronEntryPath: string
+  electronEntryWatchIntervalMs: number
+  electronShutdownGraceMs: number
+  log: (message: string) => void
+  onStopped: () => void
+  onUnexpectedExit: UnexpectedExitHandler
+  pnpmCommand: string
+  supervisor: ProcessSupervisor
+}
 
 export class ElectronController {
   #appDir
   #devServerUrl = ''
   #electronEntryPath
   #electronEntryWatchIntervalMs
-  #electronProcess = null
+  #electronProcess: ChildProcess | null = null
   #electronShutdownGraceMs
   #log
   #onStopped
   #onUnexpectedExit
   #pnpmCommand
   #restartAfterExit = false
-  #restartTimer = null
+  #restartTimer: NodeJS.Timeout | null = null
   #supervisor
   #lastKnownElectronEntryMtimeMs = 0
 
@@ -28,7 +41,7 @@ export class ElectronController {
     onUnexpectedExit,
     pnpmCommand,
     supervisor,
-  }) {
+  }: ElectronControllerOptions) {
     this.#appDir = appDir
     this.#electronEntryPath = electronEntryPath
     this.#electronEntryWatchIntervalMs = electronEntryWatchIntervalMs
@@ -40,11 +53,11 @@ export class ElectronController {
     this.#supervisor = supervisor
   }
 
-  setDevServerUrl(url) {
+  setDevServerUrl(url: string) {
     this.#devServerUrl = url
   }
 
-  setElectronEntryMtime(mtimeMs) {
+  setElectronEntryMtime(mtimeMs: number) {
     this.#lastKnownElectronEntryMtimeMs = mtimeMs
   }
 
@@ -95,7 +108,7 @@ export class ElectronController {
     })
   }
 
-  #handleExit(childProcess, code, signal) {
+  #handleExit(childProcess: ChildProcess, code: number | null, signal: NodeJS.Signals | null) {
     const shouldRestart = this.#restartAfterExit
     this.#restartAfterExit = false
 

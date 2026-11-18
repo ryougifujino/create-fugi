@@ -9,19 +9,19 @@ import {
   pnpmCommand,
   portSearchLimit,
   waitTimeoutMs,
-} from './config.js'
-import { ElectronController } from './electron-controller.js'
-import { log, logFailure } from './logger.js'
-import { ProcessSupervisor } from './process-supervisor.js'
-import { findAvailablePort, waitForDevServer, waitForFile } from './readiness.js'
+} from './config.ts'
+import { ElectronController } from './electron-controller.ts'
+import { log, logFailure } from './logger.ts'
+import { ProcessSupervisor } from './process-supervisor.ts'
+import { findAvailablePort, waitForDevServer, waitForFile } from './readiness.ts'
 
-let exitPromise = null
+let exitPromise: Promise<void> | null = null
 
-function resolveExitCode(cause) {
+function resolveExitCode(cause: unknown) {
   return typeof cause === 'number' ? cause : 1
 }
 
-function fail(message, cause) {
+function fail(message: string, cause: unknown) {
   logFailure(message, cause)
   void shutdown(resolveExitCode(cause))
 }
@@ -46,7 +46,7 @@ const electronController = new ElectronController({
   supervisor,
 })
 
-async function shutdown(exitCode) {
+async function shutdown(exitCode: number) {
   if (exitPromise !== null) {
     return exitPromise
   }

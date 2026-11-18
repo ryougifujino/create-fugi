@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { electronDevRelativePath, electronDevSourceDir, listElectronDevTemplates } from './sync-electron-dev.ts'
 
 const tarball = process.argv[2]
 assert.ok(tarball, 'Usage: node scripts/verify-npm-package.ts <tarball>')
@@ -22,6 +23,11 @@ for (const file of trackedFiles.split('\0').filter(Boolean)) {
   templates.set(template, files)
 }
 assert.ok(templates.size > 0, 'No tracked templates found.')
+const electronDevFiles = readdirSync(electronDevSourceDir).sort()
+const electronTemplates = new Set(await listElectronDevTemplates())
+for (const template of electronTemplates) {
+  assert.ok(templates.has(template), `Missing Electron template: ${template}`)
+}
 
 const tempDir = mkdtempSync(path.join(tmpdir(), 'create-fugi-package-'))
 try {
@@ -62,6 +68,18 @@ try {
       readFileSync(path.join(repoRoot, 'templates', template, '.gitignore')),
       `${template}: .gitignore differs from the template`,
     )
+
+    if (electronTemplates.has(template)) {
+      const scriptsDir = path.join(projectDir, electronDevRelativePath)
+      assert.deepEqual(readdirSync(scriptsDir).sort(), electronDevFiles, `${template}: incorrect Electron dev files`)
+      for (const file of electronDevFiles) {
+        assert.deepEqual(
+          readFileSync(path.join(scriptsDir, file)),
+          readFileSync(path.join(electronDevSourceDir, file)),
+          `${template}: Electron dev file ${file} differs from the shared source`,
+        )
+      }
+    }
   }
   console.log(`Verified ${templates.size} templates from ${path.basename(tarball)}.`)
 } finally {

@@ -6,6 +6,7 @@ import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import chalk from 'chalk';
 import ora from 'ora';
+import { syncElectronDevScripts } from './sync-electron-dev.ts';
 
 type ScriptLabels = Map<string, Set<string>>;
 
@@ -868,6 +869,7 @@ async function closeLogStream() {
 
 async function main() {
   const startedAt = Date.now();
+  await syncElectronDevScripts();
   const templateDirs = await listTemplateDirs();
   const summary: RunSummary = {
     totalTemplates: templateDirs.length,

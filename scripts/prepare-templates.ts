@@ -1,6 +1,7 @@
 import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { syncElectronDevScripts } from './sync-electron-dev.ts'
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url))
 const projectRootDir = path.resolve(scriptDir, '..')
@@ -27,3 +28,5 @@ for (const templateName of templateNames) {
   const gitignoreContent = await readFile(sourcePath, 'utf-8')
   await writeFile(targetPath, gitignoreContent)
 }
+
+await syncElectronDevScripts()

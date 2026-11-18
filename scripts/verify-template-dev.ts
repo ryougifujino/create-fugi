@@ -7,6 +7,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import chalk from 'chalk';
+import { syncElectronDevScripts } from './sync-electron-dev.ts';
 
 interface RunnableTemplate {
   name: string;
@@ -101,6 +102,8 @@ async function main() {
     renderDryRun(runnableTemplates, skippedTemplates);
     return;
   }
+
+  await syncElectronDevScripts();
 
   if (autoEnabled) {
     const { verifyTemplates } = await import('./verify-template-dev-auto.ts');

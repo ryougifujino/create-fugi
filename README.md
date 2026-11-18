@@ -53,6 +53,10 @@ bun create fugi
 
 Then follow the prompts to choose a template and project name.
 
+## Maintain Electron Templates
+
+Edit the shared development scripts in [`template-assets/electron-dev/`](./template-assets/electron-dev/). When a template sets `scripts.dev` in `apps/desktop/package.json` to `node ./scripts/dev/index.ts`, the build copies the shared files into that template's `apps/desktop/scripts/dev/` for packaging. Run `pnpm build` from the repository root before starting a template directly from this checkout. `pnpm verify-template-dev` also syncs the scripts before launching templates.
+
 ## License
 
 MIT
