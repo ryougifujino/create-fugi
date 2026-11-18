@@ -362,27 +362,28 @@ test('runCreateCommand leaves larger tokens containing the template name untouch
   }
 });
 
-test('runCreateCommand skips prompts when project name and template are provided', async () => {
+test('runCreateCommand skips prompts and shows a runnable example for the CLI template', async () => {
   const tempRootDir = await mkdtemp(path.join(os.tmpdir(), 'create-fugi-create-'));
 
   try {
     const templatesRootDir = path.join(tempRootDir, 'templates');
     const gitignoresRootDir = path.join(tempRootDir, 'gitignores');
-    const reactTemplateDir = path.join(templatesRootDir, 'react');
+    const cliTemplateDir = path.join(templatesRootDir, 'cli');
     const cwd = path.join(tempRootDir, 'workspace');
 
-    await mkdir(reactTemplateDir, { recursive: true });
+    await mkdir(cliTemplateDir, { recursive: true });
     await mkdir(gitignoresRootDir, { recursive: true });
     await mkdir(cwd, { recursive: true });
-    await writeFile(path.join(gitignoresRootDir, 'react_gitignore'), 'node_modules\n');
+    await writeFile(path.join(gitignoresRootDir, 'cli_gitignore'), 'node_modules\n');
     await writeFile(
-      path.join(reactTemplateDir, 'package.json'),
-      JSON.stringify({ name: 'react' }, null, 2),
+      path.join(cliTemplateDir, 'package.json'),
+      JSON.stringify({ name: 'cli' }, null, 2),
     );
 
+    const logs: string[] = [];
     await runCreateCommand({
       projectName: 'demo-app',
-      templateName: 'react',
+      templateName: 'cli',
       cwd,
       promptTemplate: async () => {
         throw new Error('template prompt should not run');
@@ -392,11 +393,16 @@ test('runCreateCommand skips prompts when project name and template are provided
       },
       templatesRootDir,
       gitignoresRootDir,
-      log: () => {},
+      runGitCommand: async () => {},
+      log: (message) => logs.push(message),
     });
 
     const packageJson = await readFile(path.join(cwd, 'demo-app', 'package.json'), 'utf-8');
     assert.match(packageJson, /"name": "demo-app"/);
+    assert.equal(
+      logs.at(-1),
+      'Next steps:\n  cd demo-app\n  pnpm install\n  pnpm dev hello Ada',
+    );
   } finally {
     await rm(tempRootDir, { recursive: true, force: true });
   }

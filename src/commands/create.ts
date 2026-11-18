@@ -113,7 +113,8 @@ export async function runCreateCommand(dependencies: CreateCommandDependencies =
     nextSteps.push('git init')
   }
 
-  nextSteps.push('pnpm install', 'pnpm dev')
+  const devCommand = selectedTemplate.name === 'cli' ? 'pnpm dev hello Ada' : 'pnpm dev'
+  nextSteps.push('pnpm install', devCommand)
   log(`Next steps:\n${nextSteps.map((step) => `  ${step}`).join('\n')}`)
 }
 

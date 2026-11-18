@@ -53,6 +53,24 @@ bun create fugi
 
 Then follow the prompts to choose a template and project name.
 
+### Create a project without prompts
+
+Pass both the project name and `--template` (`-t`) to create a new directory.
+
+```bash
+pnpm create fugi my-tool --template cli
+```
+
+Use `.` to generate files in the current directory. The CLI uses the directory name as the project name, so it must be in kebab-case. Start with an empty directory. Existing Git metadata is allowed.
+
+```bash
+pnpm create fugi . --template react
+```
+
+### Run the generated project
+
+From the generated project's directory, run `pnpm install`, then `pnpm dev`. For the `cli` template, run `pnpm dev hello Ada` to see `Hello, Ada!`.
+
 ## Maintain Electron Templates
 
 Edit the shared development scripts in [`template-assets/electron-dev/`](./template-assets/electron-dev/). When a template sets `scripts.dev` in `apps/desktop/package.json` to `node ./scripts/dev/index.ts`, the build copies the shared files into that template's `apps/desktop/scripts/dev/` for packaging. Run `pnpm build` from the repository root before starting a template directly from this checkout. `pnpm verify-template-dev` also syncs the scripts before launching templates.

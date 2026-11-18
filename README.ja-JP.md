@@ -53,6 +53,24 @@ bun create fugi
 
 その後、対話プロンプトでテンプレートとプロジェクト名を選択します。
 
+### 対話プロンプトなしで作成する
+
+プロジェクト名と `--template`（短縮形は `-t`）を指定すると、対話プロンプトを省略して新しいディレクトリを作成できます。
+
+```bash
+pnpm create fugi my-tool --template cli
+```
+
+`.` を指定すると、現在のディレクトリに生成できます。ディレクトリ名をプロジェクト名として使うため、kebab-case にしてください。空のディレクトリで実行してください。既存の Git メタデータはそのままにできます。
+
+```bash
+pnpm create fugi . --template react
+```
+
+### 生成したプロジェクトを起動する
+
+生成したプロジェクトのディレクトリで `pnpm install` を実行し、続けて `pnpm dev` を実行します。`cli` テンプレートの場合は `pnpm dev hello Ada` を実行すると、`Hello, Ada!` が表示されます。
+
 ## Electron テンプレートのメンテナンス
 
 共有の開発スクリプトは [`template-assets/electron-dev/`](./template-assets/electron-dev/) で管理します。テンプレートの `apps/desktop/package.json` で `scripts.dev` を `node ./scripts/dev/index.ts` に設定すると、ビルド時に npm パッケージ用の共有ファイルがそのテンプレートの `apps/desktop/scripts/dev/` にコピーされます。このリポジトリ内のテンプレートで直接 `pnpm dev` を実行する前に、ルートで `pnpm build` を実行してください。`pnpm verify-template-dev` も起動前にスクリプトを同期します。

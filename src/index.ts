@@ -12,9 +12,15 @@ export const HELP_TEXT = `Usage:
   pnpm create fugi [project-name] [options]
 
 Options:
-  -t, --template <name>  Scaffold with the given template without prompting
+  -t, --template <name>  Use the given template
   -h, --help             Show this help message
-  -v, --version          Show the CLI version`
+  -v, --version          Show the CLI version
+
+Non-interactive examples
+  pnpm create fugi my-tool --template cli
+  pnpm create fugi . --template react
+
+Use "." to scaffold into the current directory if it is empty.`
 
 export interface CreateCliOptions {
   projectName?: string
