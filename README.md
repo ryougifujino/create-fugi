@@ -14,6 +14,7 @@ Examples:
 
 - `cli`: single-package Node.js command-line tool template (TypeScript).
 - `react`: single-package React frontend template.
+- `solid`: single-package Solid frontend template.
 - `mono-go-react`: monorepo with a React frontend and a Go backend, with optional embedding of the frontend in the Go binary.
 - `mono-go-solid`: monorepo with a Solid frontend and a Go backend, with optional embedding of the frontend in the Go binary.
 - `mono-hono-react`: monorepo full-stack template with React frontend and Hono backend.

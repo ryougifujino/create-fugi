@@ -21,6 +21,7 @@ const devErrorPattern =
 
 const checks = new Map([
   ['react', 'web-counter'],
+  ['solid', 'web-counter'],
   ['mono-electron-react', 'electron-counter'],
   ['mono-electron-solid', 'electron-counter'],
   ['mono-go-react', 'web-api'],

@@ -18,6 +18,7 @@ export interface TemplateEntry {
 const TEMPLATE_DESCRIPTIONS: Record<string, string> = {
   cli: 'Single-package Node.js command-line tool (TypeScript)',
   react: 'Single-package React frontend (Vite)',
+  solid: 'Single-package Solid frontend (Vite)',
   'mono-node': 'Monorepo with a Node.js app',
   'mono-go-react': 'Monorepo with a React frontend and a Go backend',
   'mono-go-solid': 'Monorepo with a Solid frontend and a Go backend',

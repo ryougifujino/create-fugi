@@ -14,6 +14,7 @@
 
 - `cli`: シングルパッケージの Node.js CLI テンプレート（TypeScript）。
 - `react`: シングルパッケージの React フロントエンドテンプレート。
+- `solid`: シングルパッケージの Solid フロントエンドテンプレート。
 - `mono-go-react`: React フロントエンドと Go バックエンドの monorepo。フロントエンドは Go バイナリに埋め込み可能。
 - `mono-go-solid`: Solid フロントエンドと Go バックエンドの monorepo。フロントエンドは Go バイナリに埋め込み可能。
 - `mono-hono-react`: monorepo のフルスタックテンプレート（React + Hono）。
