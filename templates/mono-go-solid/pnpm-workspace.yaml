@@ -4,7 +4,7 @@ packages:
 catalog:
   '@solidjs/vite-plugin': 3.0.0-next.57
   '@solidjs/web': 2.0.0-rc.21
-  '@types/node': ^24.10.12
+  '@types/node': ^26.6.6
   solid-js: 2.0.0-rc.21
   typescript: ~7.0.2
   vite: ^8.3.6

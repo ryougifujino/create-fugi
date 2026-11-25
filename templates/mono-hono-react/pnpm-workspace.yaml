@@ -4,7 +4,7 @@ packages:
 
 catalog:
   '@hono/zod-validator': ^0.9.1
-  '@types/node': ^24.10.12
+  '@types/node': ^26.6.6
   '@types/react': ^19.3.0
   '@types/react-dom': ^19.3.0
   hono: ^4.13.17
