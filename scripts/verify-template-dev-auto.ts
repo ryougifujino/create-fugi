@@ -26,6 +26,7 @@ const checks = new Map([
   ['mono-go-react', 'web-api'],
   ['mono-go-solid', 'web-api'],
   ['mono-hono-react', 'web-api'],
+  ['mono-hono-solid', 'web-api'],
   ['mono-hono-electron-react', 'electron-api'],
   ['mono-hono-electron-solid', 'electron-api'],
   ['mono-node', 'node'],

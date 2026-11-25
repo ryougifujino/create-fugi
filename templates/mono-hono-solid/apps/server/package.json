@@ -1,0 +1,20 @@
+{
+  "name": "@mono-hono-solid/server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "build": "pnpm typecheck && tsc",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@hono/node-server": "^2.1.6",
+    "@mono-hono-solid/api": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "typescript": "catalog:"
+  }
+}

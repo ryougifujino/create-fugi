@@ -22,6 +22,7 @@ const TEMPLATE_DESCRIPTIONS: Record<string, string> = {
   'mono-go-react': 'Monorepo with a React frontend and a Go backend',
   'mono-go-solid': 'Monorepo with a Solid frontend and a Go backend',
   'mono-hono-react': 'Monorepo with a React frontend and a Hono backend',
+  'mono-hono-solid': 'Monorepo with a Solid frontend and a Hono backend',
   'mono-electron-react': 'Monorepo with an Electron + React desktop app',
   'mono-electron-solid': 'Monorepo with an Electron + Solid desktop app',
   'mono-hono-electron-react': 'Monorepo with an Electron + React desktop app and a Hono backend',

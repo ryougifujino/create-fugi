@@ -17,6 +17,7 @@
 - `mono-go-react`：React 前端与 Go 后端的 monorepo，可将前端嵌入 Go 二进制文件。
 - `mono-go-solid`：Solid 前端与 Go 后端的 monorepo，可将前端嵌入 Go 二进制文件。
 - `mono-hono-react`：monorepo 全栈模板，前端 React，后端 Hono。
+- `mono-hono-solid`：monorepo 全栈模板，前端 Solid，后端 Hono。
 - 其他主要差异（比如 `electron`）也可以在模板名中体现。
 
 ## 约束与检查

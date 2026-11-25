@@ -1,0 +1,17 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "target": "ES2023",
+    "lib": ["ES2023"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "erasableSyntaxOnly": true,
+    "rewriteRelativeImportExtensions": true,
+    "rootDir": "./src",
+    "outDir": "./dist",
+    "types": ["node"],
+    "noEmitOnError": true
+  },
+  "include": ["src"],
+  "exclude": ["dist", "node_modules"]
+}

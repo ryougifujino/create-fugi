@@ -17,6 +17,7 @@ Examples:
 - `mono-go-react`: monorepo with a React frontend and a Go backend, with optional embedding of the frontend in the Go binary.
 - `mono-go-solid`: monorepo with a Solid frontend and a Go backend, with optional embedding of the frontend in the Go binary.
 - `mono-hono-react`: monorepo full-stack template with React frontend and Hono backend.
+- `mono-hono-solid`: monorepo full-stack template with Solid frontend and Hono backend.
 - Other primary differences (for example, `electron`) can be reflected in template names when needed.
 
 ## Constraints and Checks
